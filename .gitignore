@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+
+# Env & secrets
+.env
+.env.local
+.env.*.local
+
+# Editors / OS / agent tooling
+.vscode/
+.idea/
+.claude/
+AGENTS.md
+CLAUDE.md
+.DS_Store
+Thumbs.db
+
+# Runtime artifacts
+uploads/
+*.log
