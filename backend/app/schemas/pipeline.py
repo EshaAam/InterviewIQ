@@ -39,10 +39,21 @@ class QuestionGenerationResult(BaseModel):
 
 # --- Stage 3: answer evaluation ---
 
+class ConceptCoverage(BaseModel):
+    concept: str
+    covered: float = Field(ge=0.0, le=1.0)
+
+
+class RubricScores(BaseModel):
+    # Fixed rubric axes (0..1). Explicit fields, not an open map: the Gemini
+    # Developer API rejects `additionalProperties`, so no dict[str, float] here.
+    correctness: float = Field(ge=0.0, le=1.0)
+    depth: float = Field(ge=0.0, le=1.0)
+    clarity: float = Field(ge=0.0, le=1.0)
+
+
 class AnswerEvaluationResult(BaseModel):
-    # Which expected concepts the answer covered, 0..1 each.
-    concept_coverage: dict[str, float]
-    # Rubric sub-scores, 0..1: correctness, depth, clarity.
-    llm_scores: dict[str, float]
+    concept_coverage: list[ConceptCoverage]
+    llm_scores: RubricScores
     confidence: float = Field(ge=0.0, le=1.0)
     evidence: str = ""

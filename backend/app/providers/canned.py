@@ -8,12 +8,16 @@ provider must also return.
 
 from __future__ import annotations
 
+import re
+
 from app.providers.fake import CannedMap
 from app.schemas.pipeline import (
     AnswerEvaluationResult,
+    ConceptCoverage,
     ExtractedSkillOut,
     GeneratedQuestion,
     QuestionGenerationResult,
+    RubricScores,
     SkillExtractionResult,
 )
 
@@ -63,21 +67,32 @@ def _fake_questions(prompt: str) -> QuestionGenerationResult:
 
 
 def _fake_evaluation(prompt: str) -> AnswerEvaluationResult:
-    # A deterministic, plausible evaluation. The prompt embeds the expected
-    # concepts as lines "- <concept>"; mark a concept covered if it appears in
-    # the answer text of the same prompt.
-    text = prompt.lower()
+    # Deterministic, plausible evaluation based on word overlap between each
+    # expected concept and the answer text — the same signal the (fake)
+    # embedding pass uses, so the two passes naturally agree for real answers.
+    before, _, after = prompt.partition("Answer:")
+    answer_tokens = set(re.findall(r"[a-z0-9]+", after.lower()))
     concepts = [
         line.strip("- ").strip()
-        for line in prompt.splitlines()
+        for line in before.splitlines()
         if line.strip().startswith("-")
-    ]
-    coverage = {
-        c: (1.0 if c.lower() in text else 0.4) for c in concepts
-    } or {"general": 0.6}
+    ] or ["general"]
+
+    coverage = []
+    for concept in concepts:
+        tokens = re.findall(r"[a-z0-9]+", concept.lower())
+        hit = sum(1 for t in tokens if t in answer_tokens)
+        ratio = hit / len(tokens) if tokens else 0.0
+        coverage.append(ConceptCoverage(concept=concept, covered=round(ratio, 3)))
+
+    mean = sum(c.covered for c in coverage) / len(coverage)
     return AnswerEvaluationResult(
         concept_coverage=coverage,
-        llm_scores={"correctness": 0.7, "depth": 0.6, "clarity": 0.8},
+        llm_scores=RubricScores(
+            correctness=round(mean, 3),
+            depth=round(mean * 0.9, 3),
+            clarity=0.8,
+        ),
         confidence=0.75,
         evidence="fake-evaluation",
     )
