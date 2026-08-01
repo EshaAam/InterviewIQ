@@ -16,14 +16,25 @@ class _Schema(BaseModel):
 
 
 async def test_embeddings_are_deterministic_and_normalized() -> None:
-    p = FakeProvider(embed_dim=32)
-    a1, a2 = await p.embed(["hello", "hello"])
-    (b,) = await p.embed(["different"])
+    p = FakeProvider(embed_dim=64)
+    a1, a2 = await p.embed(["hello world", "hello world"])
 
     assert a1 == a2  # same text -> same vector
-    assert a1 != b
-    assert len(a1) == 32
+    assert len(a1) == 64
     assert math.isclose(math.sqrt(sum(x * x for x in a1)), 1.0, rel_tol=1e-9)
+
+
+async def test_embeddings_capture_word_overlap() -> None:
+    from app.services.scoring import cosine
+
+    p = FakeProvider(embed_dim=128)
+    (shared, related, unrelated) = await p.embed(
+        ["python async event loop",
+         "the event loop runs python coroutines",
+         "gardening tips for tomatoes"]
+    )
+    # Texts sharing words are closer than texts sharing none.
+    assert cosine(shared, related) > cosine(shared, unrelated)
 
 
 async def test_complete_validates_dict_response() -> None:

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import re
 from collections.abc import Callable
 from typing import TypeVar
 
@@ -68,18 +69,17 @@ class FakeProvider:
         return [self._embed_one(t) for t in texts]
 
     def _embed_one(self, text: str) -> list[float]:
-        """A deterministic, L2-normalized pseudo-embedding derived from a hash."""
-        vals: list[float] = []
-        counter = 0
-        while len(vals) < self.embed_dim:
-            block = hashlib.sha256(
-                text.encode("utf-8") + counter.to_bytes(4, "big")
-            ).digest()
-            for byte in block:
-                vals.append(byte / 127.5 - 1.0)  # map 0..255 -> -1..1
-                if len(vals) >= self.embed_dim:
-                    break
-            counter += 1
+        """A deterministic, L2-normalized hashing bag-of-words vector.
+
+        Each token is hashed to a dimension, so texts that share words get a
+        positive cosine — a cheap, offline stand-in for semantic similarity.
+        This makes the deterministic evaluation pass meaningful in tests without
+        a real embedding model.
+        """
+        vals = [0.0] * self.embed_dim
+        for token in re.findall(r"[a-z0-9]+", text.lower()):
+            digest = hashlib.sha256(token.encode("utf-8")).digest()
+            vals[int.from_bytes(digest[:4], "big") % self.embed_dim] += 1.0
         norm = math.sqrt(sum(v * v for v in vals)) or 1.0
         return [v / norm for v in vals]
 
