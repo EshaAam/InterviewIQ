@@ -20,12 +20,31 @@ class LLMError(Exception):
     """Base class for all provider-layer failures."""
 
 
+class LLMTransientError(LLMError):
+    """A retryable fault: 5xx, timeout, connection reset, rate limit.
+
+    The retry wrapper backs off and re-attempts these; the circuit breaker
+    counts them. Everything transient must map to this so the resilience layer
+    can tell "try again" from "give up".
+    """
+
+
 class LLMValidationError(LLMError):
     """Model output could not be coerced into the requested schema.
 
-    Raised after the (single) repair attempt is exhausted — the caller treats
-    this as a dead-letter and fails the session, rather than looping forever.
+    Terminal, not retryable: after the single repair attempt is exhausted the
+    caller treats this as a dead-letter and fails the session, rather than
+    looping forever.
     """
+
+
+class LLMCircuitOpen(LLMError):
+    """The circuit breaker is open — fail fast instead of queueing behind a
+    provider that is currently down."""
+
+
+class LLMBudgetExceeded(LLMError):
+    """The per-user token budget would be exceeded; reject before spending."""
 
 
 @runtime_checkable
