@@ -59,8 +59,16 @@ def get_provider() -> LLMProvider:
         case "gemini":
             from app.providers.gemini import GeminiProvider
 
+            keys = settings.gemini_keys
+            if not keys:
+                raise ValueError(
+                    "LLM_PROVIDER=gemini requires GEMINI_API_KEY or GEMINI_API_KEYS"
+                )
             concrete = GeminiProvider(
-                api_key=settings.GEMINI_API_KEY, model=settings.GEMINI_MODEL
+                keys=keys,
+                model=settings.GEMINI_MODEL,
+                embed_model=settings.GEMINI_EMBED_MODEL,
+                cooldown=settings.GEMINI_KEY_COOLDOWN_SECONDS,
             )
             return wrap_with_resilience(concrete, prompt_version=PROMPT_VERSION)
         case "ollama":  # pragma: no cover - optional, Phase 3 stretch
