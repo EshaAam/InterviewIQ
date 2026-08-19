@@ -11,6 +11,8 @@ routes and workers — is what makes the machine testable and auditable.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from app.models.session import InterviewSession, SessionState
 
 S = SessionState
@@ -84,3 +86,28 @@ class SessionService:
         session.state = target
         session.failure_reason = reason if target in _FAILURE_STATES else None
         return session
+
+    @staticmethod
+    def is_expired(session: InterviewSession) -> bool:
+        """True if the server-side deadline has passed. The client never decides this."""
+        if session.expires_at is None:
+            return False
+        deadline = session.expires_at
+        # SQLite (tests) drops tzinfo on read; treat a naive deadline as UTC so
+        # the comparison against an aware `now` is valid on both backends.
+        if deadline.tzinfo is None:
+            deadline = deadline.replace(tzinfo=UTC)
+        return datetime.now(UTC) >= deadline
+
+    @classmethod
+    def maybe_expire(cls, session: InterviewSession) -> bool:
+        """Move a still-active session to EXPIRED if its deadline passed.
+
+        Returns True if it transitioned. Terminal states are left untouched.
+        """
+        if session.state in _FAILURE_STATES or not _TRANSITIONS.get(session.state):
+            return False
+        if cls.is_expired(session):
+            cls.transition(session, SessionState.EXPIRED, reason="deadline passed")
+            return True
+        return False
