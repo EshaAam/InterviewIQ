@@ -46,6 +46,17 @@ async def get_current_user(
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
+async def require_budget(user: CurrentUser, db: DbSession) -> None:
+    """Reject with 429 before spending if the user is over their daily token cap."""
+    from app.services.budget import tokens_used_today
+
+    if await tokens_used_today(db, user.id) >= settings.USER_DAILY_TOKEN_BUDGET:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Daily token budget exceeded",
+        )
+
+
 def require_role(*roles: UserRole):
     """Dependency factory: allow only the given roles."""
 
