@@ -11,18 +11,22 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.api.deps import CurrentUser, DbSession, require_role
-from app.models import Answer, Evaluation, InterviewSession, Question
+from app.core.config import settings
+from app.models import Answer, Evaluation, InterviewSession, LLMCall, Question
 from app.models.session import SessionState
 from app.models.user import UserRole
 from app.schemas.interview import (
+    CostSummary,
     EvaluationReviewRead,
+    LLMCallRead,
     OverrideRequest,
     OverrideResult,
     RecruiterSessionRead,
 )
+from app.services.budget import utc_day_start
 
 router = APIRouter(
     prefix="/recruiter",
@@ -97,3 +101,43 @@ async def override_evaluation(
     evaluation.override_note = payload.note
     await db.flush()
     return OverrideResult.model_validate(evaluation)
+
+
+@router.get("/costs", response_model=CostSummary)
+async def costs(
+    db: DbSession,
+    limit: Annotated[int, Query(ge=1, le=200)] = 25,
+) -> CostSummary:
+    """Today's spend plus the tail of the ledger.
+
+    Read-only view over the same `LLMCall` rows the budget guard sums, so the
+    number a recruiter sees here is the number that gates the 429.
+    """
+    day_start = utc_day_start()
+    totals = (
+        await db.execute(
+            select(
+                func.coalesce(
+                    func.sum(LLMCall.prompt_tokens + LLMCall.completion_tokens), 0
+                ),
+                func.coalesce(func.sum(LLMCall.cost_estimate), 0.0),
+                func.count(LLMCall.id),
+            ).where(LLMCall.created_at >= day_start)
+        )
+    ).one()
+    failed = await db.scalar(
+        select(func.count(LLMCall.id)).where(
+            LLMCall.created_at >= day_start, LLMCall.status != "ok"
+        )
+    )
+    recent = await db.scalars(
+        select(LLMCall).order_by(LLMCall.created_at.desc()).limit(limit)
+    )
+    return CostSummary(
+        tokens_today=int(totals[0] or 0),
+        spend_today=float(totals[1] or 0.0),
+        calls_today=int(totals[2] or 0),
+        failed_today=int(failed or 0),
+        daily_token_budget=settings.USER_DAILY_TOKEN_BUDGET,
+        recent=[LLMCallRead.model_validate(row) for row in recent],
+    )

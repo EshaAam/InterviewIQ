@@ -121,3 +121,30 @@ class OverrideResult(BaseModel):
     final_score: float
     needs_review: bool
     overridden_by_id: uuid.UUID | None
+
+
+# --- Recruiter / cost ledger ---
+
+class LLMCallRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    session_id: uuid.UUID | None
+    provider: str
+    model: str
+    prompt_tokens: int
+    completion_tokens: int
+    cost_estimate: float
+    latency_ms: int
+    status: str
+    created_at: datetime
+
+
+class CostSummary(BaseModel):
+    """Today's spend, read off the same ledger the budget guard enforces against."""
+
+    tokens_today: int
+    spend_today: float
+    calls_today: int
+    failed_today: int
+    daily_token_budget: int
+    recent: list[LLMCallRead]

@@ -17,7 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import InterviewSession, LLMCall
 
 
-def _utc_day_start() -> datetime:
+def utc_day_start() -> datetime:
+    """The window every daily number in the app is measured against."""
     now = datetime.now(UTC)
     return now.replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -34,7 +35,7 @@ async def tokens_used_today(db: AsyncSession, user_id: uuid.UUID) -> int:
         .join(InterviewSession, LLMCall.session_id == InterviewSession.id)
         .where(
             InterviewSession.user_id == user_id,
-            LLMCall.created_at >= _utc_day_start(),
+            LLMCall.created_at >= utc_day_start(),
         )
     )
     return int(total or 0)
