@@ -28,9 +28,15 @@ out/
 .claude/
 AGENTS.md
 CLAUDE.md
+PROGRESS.md
 .DS_Store
 Thumbs.db
+frontend.md
+implementation.md
 
 # Runtime artifacts
 uploads/
 *.log
+
+# Load-test output (the baseline summary lives in docs/PROGRESS.md)
+loadtest/results/
