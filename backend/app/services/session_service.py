@@ -18,18 +18,27 @@ from app.models.session import InterviewSession, SessionState
 S = SessionState
 
 # Allowed target states for each source state. The empty frozensets are the
-# terminal states — nothing leaves COMPLETED / FAILED / EXPIRED / NEEDS_HUMAN.
+# terminal states — nothing leaves COMPLETED / FAILED / EXPIRED.
+#
+# Two edges worth knowing:
+# - EVALUATING cannot expire. The deadline is for *answering*; once the
+#   candidate has finished, grading may take as long as it takes. (A client
+#   polling GET /sessions/{id} during grading would otherwise flip it to
+#   EXPIRED under a running build_report.)
+# - NEEDS_HUMAN_REVIEW -> COMPLETED happens when a recruiter has cleared the
+#   last flagged answer and the report has been rebuilt.
+# - CREATED -> FAILED is the "gave up" edge: question generation kept hitting
+#   transient errors until its retries ran out, and each failed attempt rolled
+#   back to CREATED.
 _TRANSITIONS: dict[SessionState, frozenset[SessionState]] = {
-    S.CREATED: frozenset({S.PARSING, S.EXPIRED}),
+    S.CREATED: frozenset({S.PARSING, S.FAILED, S.EXPIRED}),
     S.PARSING: frozenset({S.GENERATING_QS, S.FAILED, S.EXPIRED}),
     S.GENERATING_QS: frozenset({S.READY, S.FAILED, S.EXPIRED}),
     S.READY: frozenset({S.IN_PROGRESS, S.EXPIRED}),
     S.IN_PROGRESS: frozenset({S.EVALUATING, S.EXPIRED}),
-    S.EVALUATING: frozenset(
-        {S.COMPLETED, S.NEEDS_HUMAN_REVIEW, S.FAILED, S.EXPIRED}
-    ),
+    S.EVALUATING: frozenset({S.COMPLETED, S.NEEDS_HUMAN_REVIEW, S.FAILED}),
+    S.NEEDS_HUMAN_REVIEW: frozenset({S.COMPLETED}),
     S.COMPLETED: frozenset(),
-    S.NEEDS_HUMAN_REVIEW: frozenset(),
     S.FAILED: frozenset(),
     S.EXPIRED: frozenset(),
 }
@@ -103,9 +112,11 @@ class SessionService:
     def maybe_expire(cls, session: InterviewSession) -> bool:
         """Move a still-active session to EXPIRED if its deadline passed.
 
-        Returns True if it transitioned. Terminal states are left untouched.
+        Returns True if it transitioned. Only states with an EXPIRED edge can
+        expire — asking the table, rather than "has any outgoing edge", keeps
+        EVALUATING and NEEDS_HUMAN_REVIEW safe from the deadline.
         """
-        if session.state in _FAILURE_STATES or not _TRANSITIONS.get(session.state):
+        if not can_transition(session.state, SessionState.EXPIRED):
             return False
         if cls.is_expired(session):
             cls.transition(session, SessionState.EXPIRED, reason="deadline passed")

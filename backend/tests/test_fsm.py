@@ -7,6 +7,7 @@ every (source, target) pair is either declared legal or must raise.
 from __future__ import annotations
 
 import itertools
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -34,6 +35,8 @@ LEGAL_EDGES = [
     (S.IN_PROGRESS, S.EVALUATING),
     (S.EVALUATING, S.COMPLETED),
     (S.EVALUATING, S.NEEDS_HUMAN_REVIEW),
+    (S.NEEDS_HUMAN_REVIEW, S.COMPLETED),
+    (S.CREATED, S.FAILED),
     (S.PARSING, S.FAILED),
     (S.GENERATING_QS, S.FAILED),
     (S.EVALUATING, S.FAILED),
@@ -42,7 +45,6 @@ LEGAL_EDGES = [
     (S.GENERATING_QS, S.EXPIRED),
     (S.READY, S.EXPIRED),
     (S.IN_PROGRESS, S.EXPIRED),
-    (S.EVALUATING, S.EXPIRED),
 ]
 
 
@@ -92,8 +94,25 @@ def test_illegal_transition_does_not_mutate() -> None:
 
 
 def test_terminal_states_have_no_outgoing_edges() -> None:
-    for terminal in (S.COMPLETED, S.NEEDS_HUMAN_REVIEW, S.FAILED, S.EXPIRED):
+    for terminal in (S.COMPLETED, S.FAILED, S.EXPIRED):
         assert _TRANSITIONS[terminal] == frozenset()
+
+
+@pytest.mark.parametrize("state", [S.EVALUATING, S.NEEDS_HUMAN_REVIEW, S.COMPLETED])
+def test_finished_sessions_ignore_the_deadline(state: SessionState) -> None:
+    # The deadline is for answering. Once the candidate has finished, a read
+    # past expires_at must not flip grading or review to EXPIRED.
+    session = _session(state)
+    session.expires_at = datetime.now(UTC) - timedelta(minutes=1)
+    assert SessionService.maybe_expire(session) is False
+    assert session.state == state
+
+
+def test_active_session_expires_past_deadline() -> None:
+    session = _session(S.IN_PROGRESS)
+    session.expires_at = datetime.now(UTC) - timedelta(minutes=1)
+    assert SessionService.maybe_expire(session) is True
+    assert session.state == S.EXPIRED
 
 
 def test_can_transition_matches_service() -> None:

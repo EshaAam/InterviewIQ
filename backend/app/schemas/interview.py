@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -48,6 +49,14 @@ class SessionRead(BaseModel):
     total_questions: int = 0
 
 
+class SessionSummary(SessionRead):
+    """One row of the candidate's own interview list."""
+
+    created_at: datetime
+    # The report's overall score, once one exists.
+    overall: float | None = None
+
+
 # --- Questions ---
 
 class QuestionRead(BaseModel):
@@ -85,6 +94,9 @@ class ReportRead(BaseModel):
     per_topic: dict
     strengths: list[str]
     gaps: list[str]
+    # True once a recruiter has overridden any score in this session — the
+    # numbers above already include that human decision.
+    human_reviewed: bool = False
 
 
 # --- Recruiter / human-review queue ---
@@ -93,13 +105,18 @@ class RecruiterSessionRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
     user_id: uuid.UUID
+    candidate_email: str
     state: SessionState
     created_at: datetime
+    # Advisory: at least one answer tripped an integrity signal.
+    integrity_flag: bool = False
 
 
 class EvaluationReviewRead(BaseModel):
     id: uuid.UUID
     answer_id: uuid.UUID
+    session_id: uuid.UUID
+    candidate_email: str
     topic: str
     question_text: str
     answer_text: str
@@ -108,6 +125,75 @@ class EvaluationReviewRead(BaseModel):
     confidence: float
     needs_review: bool
     run_count: int
+
+
+class EvaluationReviewPage(BaseModel):
+    """A page of the queue plus the size of the whole queue, so the UI can say
+    "37 waiting" while showing 20."""
+
+    items: list[EvaluationReviewRead]
+    total: int
+
+
+class EvaluationDetail(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    deterministic_score: float
+    final_score: float
+    confidence: float
+    needs_review: bool
+    run_count: int
+    # The LLM's rubric (correctness / depth / clarity), 0..1 each.
+    llm_scores: dict
+    overridden_by_id: uuid.UUID | None
+    override_note: str | None
+
+
+class IntegritySignalRead(BaseModel):
+    """An advisory hint — never a verdict, never applied to a score."""
+
+    model_config = ConfigDict(from_attributes=True)
+    code: Literal["mostly_pasted", "too_fast"]
+    detail: str
+
+
+class AnswerDetail(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    text: str
+    submitted_at: datetime
+    time_taken_ms: int | None
+    paste_events: int
+    keystroke_count: int | None
+    evaluation: EvaluationDetail | None = None
+    integrity: list[IntegritySignalRead] = []
+
+
+class QuestionDetail(BaseModel):
+    id: uuid.UUID
+    ordinal: int
+    topic: str
+    difficulty: str
+    text: str
+    expected_concepts: list[str]
+    # A list, not a single answer: the database allows more than one per
+    # question, and a review screen should show what is stored, not hide it.
+    answers: list[AnswerDetail]
+
+
+class RecruiterSessionDetail(BaseModel):
+    """Everything a reviewer needs about one interview, in one response."""
+
+    id: uuid.UUID
+    user_id: uuid.UUID
+    candidate_email: str
+    state: SessionState
+    created_at: datetime
+    expires_at: datetime | None
+    failure_reason: str | None
+    questions: list[QuestionDetail]
+    report: ReportRead | None
+    integrity_flag: bool = False
 
 
 class OverrideRequest(BaseModel):
@@ -121,6 +207,9 @@ class OverrideResult(BaseModel):
     final_score: float
     needs_review: bool
     overridden_by_id: uuid.UUID | None
+    # Where the session stands after the report was rebuilt — COMPLETED once
+    # the last flagged answer in it has been cleared.
+    session_state: SessionState | None = None
 
 
 # --- Recruiter / cost ledger ---
