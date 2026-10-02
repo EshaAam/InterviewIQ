@@ -1,10 +1,12 @@
 "use client";
 
 import { createContext, useContext, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
-import { useUser } from "@/lib/use-user";
+import Link from "next/link";
+import { ShieldAlert } from "lucide-react";
+import { homeFor, useUser } from "@/lib/use-user";
 import { type User, type UserRole } from "@/lib/auth";
 import { TopNav } from "./top-nav";
+import { buttonClass, EmptyState, Shell, Spinner } from "./ui";
 
 const SignedInUser = createContext<User | null>(null);
 
@@ -18,46 +20,21 @@ export function useSignedInUser(): User {
 }
 
 /**
- * Resolves the user once for the whole authenticated tree, renders the nav,
- * and refuses to render a page the user's role has no business seeing —
- * the backend would 403 anyway, this just fails earlier and more kindly.
+ * Resolves the user once for the whole authenticated tree and renders the
+ * nav. Role gating is not done here — that is `RequireRole`'s one job.
  */
-export function SessionProvider({
-  children,
-  requireRole,
-}: {
-  children: ReactNode;
-  requireRole?: UserRole;
-}) {
+export function SessionProvider({ children }: { children: ReactNode }) {
   const { user, loading } = useUser();
-  const router = useRouter();
 
   if (loading) {
     return (
-      <div className="flex flex-1 items-center justify-center text-sm text-ink-3">
-        Loading…
+      <div className="flex flex-1 items-center justify-center">
+        <Spinner />
       </div>
     );
   }
 
   if (!user) return null; // useUser has already redirected to /login
-
-  if (requireRole && user.role !== requireRole) {
-    return (
-      <>
-        <TopNav user={user} />
-        <div className="mx-auto flex max-w-md flex-1 flex-col items-center justify-center gap-3 text-center">
-          <p className="text-sm text-ink">This area is for {requireRole} accounts.</p>
-          <button
-            onClick={() => router.replace("/interview")}
-            className="text-sm font-medium text-accent"
-          >
-            Go to your interview
-          </button>
-        </div>
-      </>
-    );
-  }
 
   return (
     <SignedInUser.Provider value={user}>
@@ -69,7 +46,8 @@ export function SessionProvider({
 
 /**
  * Role gate for a subtree that is already inside the authenticated layout —
- * reads the user from context rather than re-fetching /auth/me.
+ * reads the user from context rather than re-fetching /auth/me. The backend
+ * would 403 anyway; this just fails earlier and more kindly.
  */
 export function RequireRole({
   role,
@@ -81,12 +59,19 @@ export function RequireRole({
   const user = useSignedInUser();
   if (user.role !== role) {
     return (
-      <div className="mx-auto flex max-w-md flex-1 flex-col items-center justify-center gap-2 py-24 text-center">
-        <p className="text-sm text-ink">This area is for {role} accounts.</p>
-        <p className="text-xs text-ink-3">
+      <Shell width="narrow">
+        <EmptyState
+          icon={<ShieldAlert aria-hidden="true" className="size-6" />}
+          title={`This area is for ${role} accounts`}
+          action={
+            <Link href={homeFor(user)} className={buttonClass("secondary", "sm")}>
+              Go to your home page
+            </Link>
+          }
+        >
           You are signed in as {user.email} ({user.role}).
-        </p>
-      </div>
+        </EmptyState>
+      </Shell>
     );
   }
   return <>{children}</>;
