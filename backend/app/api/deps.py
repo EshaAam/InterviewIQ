@@ -20,7 +20,13 @@ from app.services.user_service import UserService
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_PREFIX}/auth/login")
 
-DbSession = Annotated[AsyncSession, Depends(get_db)]
+# scope="function": get_db's commit runs when the route returns, *before* the
+# response is sent. With the default ("request") it ran after: a client could
+# read "201 Created", send its next request, and get there before the commit —
+# the Phase 7 load test hit exactly that (a login 401 right after register, a
+# 409 right after start). It also means a failing commit becomes the client's
+# error response instead of failing silently after a success was reported.
+DbSession = Annotated[AsyncSession, Depends(get_db, scope="function")]
 
 
 async def get_current_user(

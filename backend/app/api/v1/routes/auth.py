@@ -42,7 +42,7 @@ def _token_pair(user_id) -> TokenPair:
 async def register(payload: RegisterRequest, db: DbSession) -> UserRead:
     try:
         user = await UserService(db).register(
-            email=payload.email, password=payload.password, role=payload.role
+            email=payload.email, password=payload.password
         )
     except EmailAlreadyRegistered:
         raise HTTPException(

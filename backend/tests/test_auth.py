@@ -88,3 +88,47 @@ async def test_access_token_rejected_as_refresh(client: AsyncClient) -> None:
 async def test_password_min_length_enforced(client: AsyncClient, bad: str) -> None:
     resp = await _register(client, password=bad)
     assert resp.status_code == 422
+
+
+# --- Phase 6 hardening ---
+
+
+async def test_register_cannot_choose_recruiter_role(client: AsyncClient) -> None:
+    resp = await _register(client, role="recruiter")
+    assert resp.status_code == 201
+    assert resp.json()["role"] == "candidate"
+
+
+async def test_email_is_case_insensitive(client: AsyncClient) -> None:
+    await _register(client, email="Mixed.Case@Example.com")
+    assert (await _register(client, email="mixed.case@example.com")).status_code == 409
+    resp = await client.post(
+        f"{PREFIX}/login", json={**CREDS, "email": "MIXED.CASE@example.COM"}
+    )
+    assert resp.status_code == 200
+
+
+async def test_cli_creates_and_promotes_recruiters(db_session) -> None:
+    from app.cli import create_recruiter, promote
+    from app.services.user_service import UserService
+
+    assert "Created" in await create_recruiter(db_session, "Boss@Example.com", "pw-12345678")
+    assert (await UserService(db_session).get_by_email("boss@example.com")).role == "recruiter"
+    assert "already" in await create_recruiter(db_session, "boss@example.com", "pw-12345678")
+
+    await UserService(db_session).register("cand@example.com", "pw-12345678")
+    assert "now a recruiter" in await promote(db_session, "cand@example.com")
+    assert "No account" in await promote(db_session, "ghost@example.com")
+
+
+def test_weak_secret_refused_outside_local() -> None:
+    from pydantic import ValidationError
+
+    from app.core.config import Settings
+
+    with pytest.raises(ValidationError, match="SECRET_KEY"):
+        Settings(ENVIRONMENT="production", SECRET_KEY="change-me")
+    with pytest.raises(ValidationError, match="SECRET_KEY"):
+        Settings(ENVIRONMENT="staging", SECRET_KEY="too-short")
+    Settings(ENVIRONMENT="production", SECRET_KEY="x" * 48)  # fine
+    Settings(ENVIRONMENT="local", SECRET_KEY="change-me")  # fine locally
