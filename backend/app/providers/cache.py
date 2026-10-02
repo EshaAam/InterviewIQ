@@ -8,8 +8,17 @@ output: prompt + model + schema + prompt_version.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
+from contextvars import ContextVar
 from typing import Protocol
+
+# Set to True by CachingProvider when it answers from the cache, so the meter
+# (which sits outside the provider stack) can record the call as free rather
+# than charging for tokens nobody spent. A ContextVar, not an attribute on the
+# provider: one provider instance serves many concurrent calls, and a shared
+# attribute would let one call read another's answer.
+served_from_cache: ContextVar[bool] = ContextVar("served_from_cache", default=False)
 
 
 class LLMCache(Protocol):
@@ -37,17 +46,27 @@ class InMemoryCache:
 
 
 class RedisCache:
-    """Redis-backed cache. Lazily creates the client so import stays cheap."""
+    """Redis-backed cache. Lazily creates the client so import stays cheap.
+
+    One client per event loop. The provider (and so this cache) is cached for
+    the whole process, but every Celery task runs in a fresh `asyncio.run`
+    loop, and an asyncio Redis client is bound to the loop that created it.
+    A single shared client failed on every task after the first — silently,
+    because the caching wrapper swallows cache errors — so workers never hit.
+    """
 
     def __init__(self, url: str) -> None:
         self._url = url
         self._client = None
+        self._loop: asyncio.AbstractEventLoop | None = None
 
     def _redis(self):
-        if self._client is None:
+        loop = asyncio.get_running_loop()
+        if self._client is None or self._loop is not loop:
             from redis.asyncio import Redis
 
             self._client = Redis.from_url(self._url, decode_responses=True)
+            self._loop = loop
         return self._client
 
     async def get(self, key: str) -> str | None:

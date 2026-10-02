@@ -29,7 +29,7 @@ from app.providers.base import (
     LLMTransientError,
     LLMValidationError,
 )
-from app.providers.cache import LLMCache, cache_key
+from app.providers.cache import LLMCache, cache_key, served_from_cache
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -165,6 +165,13 @@ class CachingProvider:
     async def complete(
         self, prompt: str, schema: type[T], *, temperature: float = 0.0
     ) -> T:
+        # A call at temperature > 0 is asking for a *fresh sample* — that's
+        # what divergence re-runs are for. Serving it the cached temperature-0
+        # answer would make every re-run agree with the first run by
+        # construction, so these always go to the provider.
+        if temperature > 0:
+            return await self.inner.complete(prompt, schema, temperature=temperature)
+
         key = cache_key(
             prompt=prompt,
             model=self.name,
@@ -179,9 +186,12 @@ class CachingProvider:
             cached = None
         if cached is not None:
             try:
-                return schema.model_validate_json(cached)
+                result = schema.model_validate_json(cached)
             except ValidationError:
                 pass  # poisoned entry — fall through and recompute
+            else:
+                served_from_cache.set(True)
+                return result
 
         result = await self.inner.complete(prompt, schema, temperature=temperature)
         try:

@@ -23,4 +23,12 @@ celery_app.conf.update(
     task_track_started=True,
     result_expires=3600,
     worker_prefetch_multiplier=1,
+    # Run by the `beat` service (docker-compose.yml). Only one beat process
+    # may run, or every sweep is dispatched twice.
+    beat_schedule={
+        "reap-stale-sessions": {
+            "task": "pipeline.reap_stale_sessions",
+            "schedule": 300.0,  # every 5 minutes
+        },
+    },
 )

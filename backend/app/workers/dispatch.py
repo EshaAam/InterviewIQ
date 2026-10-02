@@ -11,12 +11,14 @@ offline, end-to-end flow with no broker.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Awaitable, Callable
 from typing import Protocol
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models import LLMCall
 from app.providers import LLMProvider
-from app.services import pipeline
+from app.services import ledger, pipeline
 from app.workers.tasks import (
     build_report_task,
     evaluate_answer_task,
@@ -49,23 +51,67 @@ class CeleryDispatcher:
 
 
 class InlineDispatcher:
-    """Runs the pipeline in-process against a supplied session (tests / no broker)."""
+    """Runs the pipeline in-process against a supplied session (tests / no broker).
+
+    Behaves like a worker whose retries have all run out: each attempt runs in
+    a savepoint (a failed attempt is rolled back, as a task's transaction
+    would be), ledger rows are kept even when it is (as the worker's
+    independent ledger does), and a transient failure goes straight to the
+    give-up path instead of being retried later.
+    """
 
     def __init__(self, db: AsyncSession, provider: LLMProvider) -> None:
         self.db = db
         self.provider = provider
 
+    async def _attempt(
+        self,
+        op: Callable[[], Awaitable[object]],
+        give_up: Callable[[Exception], Awaitable[None]],
+    ) -> None:
+        kept: list[LLMCall] = []
+
+        async def keep(row: LLMCall) -> None:
+            kept.append(row)
+
+        try:
+            with ledger.independent_ledger(keep):
+                async with self.db.begin_nested():
+                    await op()
+        except pipeline.RETRYABLE as exc:
+            await give_up(exc)
+        finally:
+            self.db.add_all(kept)  # outside the savepoint: survives its rollback
+
     async def parse_resume(self, resume_id: uuid.UUID) -> None:
-        await pipeline.parse_resume(self.db, self.provider, resume_id)
+        await self._attempt(
+            lambda: pipeline.parse_resume(self.db, self.provider, resume_id),
+            lambda exc: pipeline.give_up_resume(self.db, resume_id),
+        )
 
     async def generate_questions(self, session_id: uuid.UUID) -> None:
-        await pipeline.generate_questions(self.db, self.provider, session_id)
+        await self._attempt(
+            lambda: pipeline.generate_questions(self.db, self.provider, session_id),
+            lambda exc: pipeline.give_up_session(
+                self.db, session_id, f"Question generation did not complete: {exc}"
+            ),
+        )
 
     async def evaluate_answer(self, answer_id: uuid.UUID) -> None:
-        await pipeline.evaluate_answer(self.db, self.provider, answer_id)
+        async def _nothing(exc: Exception) -> None:
+            return None
+
+        await self._attempt(
+            lambda: pipeline.evaluate_answer(self.db, self.provider, answer_id), _nothing
+        )
 
     async def build_report(self, session_id: uuid.UUID) -> None:
-        await pipeline.build_report(self.db, self.provider, session_id)
+        await self._attempt(
+            lambda: pipeline.build_report(self.db, self.provider, session_id),
+            lambda exc: pipeline.give_up_session(
+                self.db, session_id, f"Grading did not complete: {exc}"
+            ),
+        )
 
 
 def get_dispatcher() -> PipelineDispatcher:
