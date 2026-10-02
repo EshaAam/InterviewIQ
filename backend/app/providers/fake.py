@@ -13,6 +13,7 @@ exists. Two properties matter:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import math
 import re
@@ -86,3 +87,26 @@ class FakeProvider:
 
 # A tiny structural check so a signature drift trips at import time in tests.
 _: type[LLMProvider] = FakeProvider
+
+
+class LatencyProvider:
+    """Adds a fixed delay to every call of the provider it wraps.
+
+    For load tests and chaos drills only (`FAKE_LATENCY_MS`). The fake answers
+    in microseconds, so without this a load test measures a queue that never
+    fills and a "kill the worker mid-grading" drill has no middle to kill in.
+    A real model call takes seconds; this puts that shape back.
+    """
+
+    def __init__(self, inner: LLMProvider, *, latency_ms: int) -> None:
+        self.inner = inner
+        self.name = inner.name
+        self._delay = latency_ms / 1000
+
+    async def complete(self, prompt: str, schema: type[T], *, temperature: float = 0.0) -> T:
+        await asyncio.sleep(self._delay)
+        return await self.inner.complete(prompt, schema, temperature=temperature)
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        await asyncio.sleep(self._delay)
+        return await self.inner.embed(texts)

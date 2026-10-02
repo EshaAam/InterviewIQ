@@ -18,7 +18,7 @@ from app.core.config import settings
 from app.providers.base import LLMProvider
 from app.providers.cache import RedisCache
 from app.providers.canned import default_canned_responses
-from app.providers.fake import FakeProvider
+from app.providers.fake import FakeProvider, LatencyProvider
 from app.providers.wrappers import (
     CachingProvider,
     CircuitBreakerProvider,
@@ -55,7 +55,10 @@ def get_provider() -> LLMProvider:
 
     match settings.LLM_PROVIDER:
         case "fake":
-            return FakeProvider(canned=default_canned_responses())
+            fake = FakeProvider(canned=default_canned_responses())
+            if settings.FAKE_LATENCY_MS > 0:
+                return LatencyProvider(fake, latency_ms=settings.FAKE_LATENCY_MS)
+            return fake
         case "gemini":
             from app.providers.gemini import GeminiProvider
 

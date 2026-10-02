@@ -1,9 +1,11 @@
 """Per-user daily token budget, enforced against the `LLMCall` ledger.
 
-The budget is checked at request time (before any work is enqueued) so an
-over-budget user is rejected with 429 *before* the system spends tokens on
-their behalf — see the API dependency `require_budget`. Usage is summed from
-the same ledger that records cost, so there is one source of truth.
+The budget is checked when a user *starts* work — a résumé or a new session —
+so an over-budget user is rejected with 429 before the system spends tokens on
+their behalf (the API dependency `require_budget`). It is deliberately not
+checked on answers or on finishing: an interview already under way may always
+complete, so the most a user can overshoot by is one interview's grading.
+Usage is summed from the same ledger that records cost: one source of truth.
 """
 
 from __future__ import annotations
@@ -14,7 +16,7 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import InterviewSession, LLMCall
+from app.models import LLMCall
 
 
 def utc_day_start() -> datetime:
@@ -24,17 +26,18 @@ def utc_day_start() -> datetime:
 
 
 async def tokens_used_today(db: AsyncSession, user_id: uuid.UUID) -> int:
-    """Total prompt+completion tokens the user has spent since UTC midnight."""
+    """Total prompt+completion tokens spent for the user since UTC midnight.
+
+    Summed on `LLMCall.user_id`, not through the session: résumé parsing has
+    no session, and spend must not vanish when a session row does.
+    """
     total = await db.scalar(
         select(
             func.coalesce(
                 func.sum(LLMCall.prompt_tokens + LLMCall.completion_tokens), 0
             )
-        )
-        .select_from(LLMCall)
-        .join(InterviewSession, LLMCall.session_id == InterviewSession.id)
-        .where(
-            InterviewSession.user_id == user_id,
+        ).where(
+            LLMCall.user_id == user_id,
             LLMCall.created_at >= utc_day_start(),
         )
     )
