@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Float, ForeignKey, Integer, String
+from sqlalchemy import Float, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -17,10 +17,19 @@ from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 class LLMCall(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "llm_calls"
+    # The budget query is "this user's tokens since midnight": both columns.
+    __table_args__ = (Index("ix_llm_calls_user_created", "user_id", "created_at"),)
 
     session_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("interview_sessions.id", ondelete="SET NULL"),
         index=True,
+        default=None,
+    )
+    # Who the call was made for. Set directly rather than derived through the
+    # session: résumé parsing has no session, and a deleted session must not
+    # erase the spend from its owner's budget.
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
         default=None,
     )
     provider: Mapped[str] = mapped_column(String(64))
