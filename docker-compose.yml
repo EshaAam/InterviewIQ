@@ -6,7 +6,11 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "5432:5432"
+      # Host side is 15432, not 5432: Windows (Hyper-V/WSL) reserves port blocks
+      # at boot, and 5432 is often inside one ("access permissions" error).
+      # Containers still reach Postgres on db:5432; only tools on your PC
+      # (psql, DBeaver, running the backend outside Docker) use 15432.
+      - "${DB_HOST_PORT:-15432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -28,11 +32,14 @@ services:
       retries: 5
 
   api:
-    build: ./backend
+    build:
+      context: ./backend
+      target: dev
     env_file: .env
     environment:
       POSTGRES_HOST: db
       REDIS_URL: redis://redis:6379/0
+      UPLOAD_DIR: /data/uploads
     ports:
       - "8000:8000"
     volumes:
@@ -40,6 +47,9 @@ services:
       # volume keeps the image's .venv from being shadowed by the host.
       - ./backend:/app
       - /app/.venv
+      # Uploaded résumé files. Only the API writes them — text is extracted at
+      # upload, so the worker never needs the original file.
+      - uploads:/data/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -47,7 +57,9 @@ services:
         condition: service_healthy
 
   worker:
-    build: ./backend
+    build:
+      context: ./backend
+      target: dev
     command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=2
     env_file: .env
     environment:
@@ -62,6 +74,26 @@ services:
       redis:
         condition: service_healthy
 
+  # The scheduler: every 5 minutes it enqueues the reaper, which re-dispatches
+  # sessions whose job looks lost. Exactly one beat may run — two would
+  # dispatch every sweep twice (harmless, since stages are idempotent, but wasteful).
+  beat:
+    build:
+      context: ./backend
+      target: dev
+    command: celery -A app.workers.celery_app beat --loglevel=info --schedule /tmp/celerybeat-schedule
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./backend:/app
+      - /app/.venv
+    depends_on:
+      redis:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   redis_data:
+  uploads:
