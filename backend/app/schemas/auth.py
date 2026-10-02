@@ -15,9 +15,15 @@ from app.models.user import UserRole
 
 
 class RegisterRequest(BaseModel):
+    """Self-service sign-up always creates a candidate.
+
+    There is deliberately no `role` field: when there was one, anyone could
+    register as a recruiter and read every candidate's answers. Recruiter
+    accounts are created with `python -m app.cli create-recruiter`.
+    """
+
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
-    role: UserRole = UserRole.candidate
 
 
 class LoginRequest(BaseModel):

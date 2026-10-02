@@ -4,11 +4,16 @@ Everything configurable lives here and comes from the environment.
 No module anywhere else in the app reads os.environ directly.
 """
 
+from __future__ import annotations
+
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import computed_field
+from pydantic import computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Values shipped in code or in .env.example — never acceptable as a real key.
+_PLACEHOLDER_SECRETS = {"change-me", "change-me-to-a-long-random-string"}
 
 
 class Settings(BaseSettings):
@@ -24,6 +29,8 @@ class Settings(BaseSettings):
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
     DEBUG: bool = False
     SECRET_KEY: str = "change-me"
+    # Browser origins allowed to call the API, comma-separated.
+    CORS_ORIGINS: str = "http://localhost:3000"
 
     # --- Postgres ---
     POSTGRES_USER: str = "interviewiq"
@@ -40,6 +47,9 @@ class Settings(BaseSettings):
 
     # --- LLM provider ---
     LLM_PROVIDER: Literal["fake", "gemini", "ollama"] = "fake"
+    # Load tests / chaos drills only: make the fake provider take this long per
+    # call, so the queue sees model-like latency instead of instant answers.
+    FAKE_LATENCY_MS: int = 0
     # Single key, or a comma-separated pool for free-tier rotation. Both are
     # merged by `gemini_keys`; put keys in .env, never in code.
     GEMINI_API_KEY: str = ""
@@ -82,6 +92,49 @@ class Settings(BaseSettings):
     # Extra LLM runs (at a nonzero temperature) to confirm a divergence.
     EVAL_RERUN_COUNT: int = 2
     EVAL_RERUN_TEMPERATURE: float = 0.4
+
+    # --- Résumé upload (Phase 5) ---
+    # Where original files are kept (LocalFileStorage). Compose mounts a volume here.
+    UPLOAD_DIR: str = "uploads"
+    RESUME_MAX_BYTES: int = 2 * 1024 * 1024
+    # Less extracted text than this means the file had no usable text layer
+    # (typically a scanned PDF) — reject it and ask for a paste instead.
+    RESUME_MIN_TEXT_CHARS: int = 40
+
+    # --- Integrity signals (Phase 5, advisory only) ---
+    # Answers shorter than this are never flagged: pasting `SELECT 1` isn't a signal.
+    INTEGRITY_MIN_CHARS: int = 120
+    # Flag when keystrokes account for less than this share of the characters.
+    INTEGRITY_MIN_TYPED_SHARE: float = 0.4
+    # Flag above this many characters per second over the whole answer time.
+    # Fast typists sustain ~8; the time also includes reading the question.
+    INTEGRITY_MAX_CHARS_PER_SECOND: float = 12.0
+
+    # --- Pipeline reliability (Phase 6) ---
+    # Celery retries for transient provider errors, with exponential backoff
+    # starting at the base delay (30 s, 60 s, 120 s, ...).
+    TASK_MAX_RETRIES: int = 4
+    TASK_RETRY_BASE_SECONDS: int = 30
+    # The reaper re-dispatches sessions stuck longer than these.
+    REAPER_CREATED_AFTER_MINUTES: int = 10
+    REAPER_EVALUATING_AFTER_MINUTES: int = 30
+
+    @model_validator(mode="after")
+    def _refuse_weak_secret_outside_local(self) -> Settings:
+        """Signing tokens with a guessable key means anyone can mint them.
+        Locally that's fine; anywhere else, fail at startup, not in an incident."""
+        weak = self.SECRET_KEY in _PLACEHOLDER_SECRETS or len(self.SECRET_KEY) < 32
+        if self.ENVIRONMENT != "local" and weak:
+            raise ValueError(
+                "SECRET_KEY must be a random string of at least 32 characters outside "
+                "ENVIRONMENT=local (e.g. `python -c \"import secrets; "
+                "print(secrets.token_urlsafe(48))\"`)."
+            )
+        return self
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
 
     @computed_field
     @property
