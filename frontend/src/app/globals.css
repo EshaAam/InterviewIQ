@@ -1,26 +1,174 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Design tokens — the palette mirrors docs/InterviewIQ Candidate Redesign.html
+ * (deep teal brand, cool grey canvas); the type is Geist throughout. If a
+ * colour changes there, change it here and nowhere else.
+ *
+ * Every text/background pair meets WCAG AA (4.5:1). Check a new pair before
+ * using it; the PDF report mirrors the semantic colours (backend report_pdf.py).
+ */
+@theme {
+  --color-canvas: #f3f6f6;
+  --color-surface: #ffffff;
+  --color-subtle: #f7fbfa;
+  --color-field: #fbfdfd;
+  --color-track: #e3ecec;
+  --color-inverse: #0c333a;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-line: #dce5e6;
+  --color-line-soft: #e7eeee;
+  --color-line-strong: #b9cccd;
+  --color-line-dashed: #9dbdbe;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-ink: #0f2e35;
+  --color-ink-2: #4a6268;
+  --color-ink-3: #5b6f74;
+  --color-ink-inv: #ffffff;
+  --color-ink-on-dark: #b8d3d2;
+
+  /* The brand: a deep teal for surfaces and buttons, a brighter teal for links,
+     marks and fills. */
+  --color-brand: #0f3d44;
+  --color-brand-2: #16545e;
+  --color-brand-3: #174951;
+  --color-brand-4: #1e5a63;
+  --color-brand-ring: #2a5960;
+  --color-accent: #0a7570;
+  --color-accent-strong: #0a5c58;
+  --color-accent-mid: #7fbfba;
+  --color-accent-subtle: #e3f2f0;
+  --color-accent-soft: #eaf6f4;
+  --color-accent-hover: #eef5f4;
+  --color-accent-ring: #d5eeeb;
+  --color-glow: #2bb3a6;
+
+  --color-ok: #1d6b45;
+  --color-ok-subtle: #e4f2ea;
+  --color-warn: #9a4416;
+  --color-warn-deep: #5c2a0e;
+  --color-warn-subtle: #fcefe3;
+  --color-warn-hover: #f8e0cb;
+  --color-warn-line: #ebc3a2;
+  --color-bad: #a3312a;
+  --color-bad-subtle: #f9e6e4;
+  --color-info: #2c5a8c;
+  --color-info-subtle: #e6eef8;
+
+  --radius-card: 20px;
+  --radius-row: 16px;
+  --radius-control: 12px;
+
+  --shadow-card: 0 1px 2px rgba(15, 46, 53, 0.04), 0 10px 28px -14px rgba(15, 46, 53, 0.14);
+  --shadow-lift: 0 18px 36px -18px rgba(15, 61, 68, 0.35), 0 0 0 4px #eaf6f4;
+  --shadow-hero: 0 24px 48px -24px rgba(12, 51, 58, 0.55);
+  --shadow-button: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 1px 2px rgba(15, 61, 68, 0.3);
+  --shadow-button-hover: inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 10px 24px -8px rgba(10, 117, 112, 0.6);
+
+  --ease-out-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* Display type: Geist set tight, the way it's drawn to be used large. */
+.font-display {
+  letter-spacing: -0.035em;
+}
+
+::selection {
+  background: var(--color-accent-ring);
+  color: var(--color-ink);
+}
+
+/* The brand button: a lit gradient that lifts on hover and presses on click. */
+@utility btn-brand {
+  background: linear-gradient(180deg, var(--color-brand-2) 0%, var(--color-brand) 100%);
+  box-shadow: var(--shadow-button);
+  color: var(--color-ink-inv);
+  &:hover:not(:disabled) {
+    background: linear-gradient(180deg, #1a6670 0%, #12505a 100%);
+    box-shadow: var(--shadow-button-hover);
+    transform: translateY(-1px);
+  }
+  &:active:not(:disabled) {
+    background: #0b3036;
+    box-shadow: none;
+    transform: translateY(0);
+  }
+}
+
+/* The overall-score hero and anything else that sits on the dark brand. */
+@utility surface-hero {
+  background: radial-gradient(120% 140% at 100% 0%, #1b5a64 0%, #0f3d44 55%, #0c333a 100%);
+  box-shadow: var(--shadow-hero);
+  color: var(--color-ink-inv);
+}
+
+/* Ledger and score columns line up only if the digits are the same width. */
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Keyboard focus, visible everywhere. `:focus-visible` keeps it off mouse
+ * clicks. Form controls get the soft teal ring from the design instead of an
+ * outline, so they don't double up with their focused border.
+ */
+:where(a, button, [role="radio"], [tabindex]):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+:where(input, textarea, select):focus-visible {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 4px var(--color-accent-ring);
+}
+/* The file input is visually hidden; show focus on the drop zone around it. */
+label:has(> input[type="file"]:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Range thumbs, for sliders that draw their own filled track. */
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--color-surface);
+  border: 3px solid var(--color-accent);
+  box-shadow: 0 2px 6px rgba(15, 61, 68, 0.3);
+  transition: transform 0.15s ease;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--color-surface);
+  border: 3px solid var(--color-accent);
+  box-shadow: 0 2px 6px rgba(15, 61, 68, 0.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

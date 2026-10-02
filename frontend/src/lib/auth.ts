@@ -38,14 +38,24 @@ export function getRefreshToken(): string | null {
   return window.localStorage.getItem(REFRESH_KEY);
 }
 
+/**
+ * Fired on `window` whenever this tab stores or clears tokens. The browser's
+ * own `storage` event only reaches *other* tabs, so without this a failed
+ * refresh deep inside `api.ts` would clear the tokens and nobody on this page
+ * would notice.
+ */
+export const TOKENS_CHANGED = "interviewiq:tokens-changed";
+
 export function storeTokens(pair: TokenPair): void {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(ACCESS_KEY, pair.access_token);
   window.localStorage.setItem(REFRESH_KEY, pair.refresh_token);
+  window.dispatchEvent(new Event(TOKENS_CHANGED));
 }
 
 export function clearTokens(): void {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(ACCESS_KEY);
   window.localStorage.removeItem(REFRESH_KEY);
+  window.dispatchEvent(new Event(TOKENS_CHANGED));
 }
