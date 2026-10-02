@@ -1,0 +1,119 @@
+# Production-shaped stack. Differences from docker-compose.yml (dev):
+#   - the `prod` image: code baked in, runtime deps only, non-root, no --reload
+#   - a one-off `migrate` service; api/worker/beat start only after it succeeds
+#   - restart policies; only the API and the web app are published (db/redis stay internal)
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Settings come from ${ENV_FILE:-.env}. Outside ENVIRONMENT=local the API
+# refuses a weak SECRET_KEY. See docs/deploy.md.
+
+x-backend: &backend
+  build:
+    context: ./backend
+    target: prod
+  image: interviewiq-backend:${IMAGE_TAG:-latest}
+  env_file: ${ENV_FILE:-.env}
+  environment:
+    POSTGRES_HOST: db
+    REDIS_URL: redis://redis:6379/0
+  restart: unless-stopped
+
+services:
+  db:
+    image: postgres:16-alpine
+    env_file: ${ENV_FILE:-.env}  # POSTGRES_USER / _PASSWORD / _DB
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # Runs once per deploy and exits. Schema changes happen *before* new code
+  # serves traffic, never as a side effect of an API process starting up
+  # (several replicas would race to migrate).
+  migrate:
+    <<: *backend
+    command: alembic upgrade head
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    <<: *backend
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  worker:
+    <<: *backend
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=${WORKER_CONCURRENCY:-4}
+    # The image's healthcheck probes HTTP; a worker serves none. Ask Celery
+    # whether *this* worker answers instead.
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.workers.celery_app inspect ping --destination celery@$$HOSTNAME --timeout 5 | grep -q pong"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      # Check every 5 s while starting, so `up --wait` (and CI) isn't left
+      # waiting a full minute for the first check.
+      start_period: 60s
+      start_interval: 5s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  # Exactly one beat per deployment — never scale this service.
+  beat:
+    <<: *backend
+    command: celery -A app.workers.celery_app beat --loglevel=info --schedule /tmp/celerybeat-schedule
+    healthcheck:
+      disable: true  # no port to probe; `restart` covers a crashed scheduler
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  # The Next.js app. NEXT_PUBLIC_API_URL is baked in when the image is built,
+  # so it must be the API's URL *as the browser sees it* (the public hostname,
+  # not "api:8000"). And that page's origin must be in the API's CORS_ORIGINS.
+  web:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8000/api/v1}
+    image: interviewiq-web:${IMAGE_TAG:-latest}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    restart: unless-stopped
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads:
