@@ -54,10 +54,20 @@ async def _load_owned_session(
     return session
 
 
+def _distinct(topics) -> list[str]:
+    """Topics in first-seen order, without repeats."""
+    return list(dict.fromkeys(topics))
+
+
 async def _to_read(db: DbSession, session: InterviewSession) -> SessionRead:
-    total = await db.scalar(
-        select(func.count(Question.id)).where(Question.session_id == session.id)
+    topics = list(
+        await db.scalars(
+            select(Question.topic)
+            .where(Question.session_id == session.id)
+            .order_by(Question.ordinal)
+        )
     )
+    total = len(topics)
     answered = await db.scalar(
         select(func.count(Answer.id))
         .select_from(Answer)
@@ -70,7 +80,10 @@ async def _to_read(db: DbSession, session: InterviewSession) -> SessionRead:
         expires_at=session.expires_at,
         failure_reason=session.failure_reason,
         answered=answered or 0,
-        total_questions=total or 0,
+        total_questions=total,
+        topics=_distinct(topics),
+        created_at=session.created_at,
+        updated_at=session.updated_at,
     )
 
 
@@ -117,16 +130,16 @@ async def list_my_sessions(
         return []
     ids = [s.id for s in sessions]
 
-    # Three grouped queries for the whole page, not three per row.
-    totals = dict(
-        (
-            await db.execute(
-                select(Question.session_id, func.count(Question.id))
-                .where(Question.session_id.in_(ids))
-                .group_by(Question.session_id)
-            )
-        ).all()
-    )
+    # Three queries for the whole page, not three per row.
+    topics: dict[uuid.UUID, list[str]] = {}
+    for session_id, topic in (
+        await db.execute(
+            select(Question.session_id, Question.topic)
+            .where(Question.session_id.in_(ids))
+            .order_by(Question.session_id, Question.ordinal)
+        )
+    ).all():
+        topics.setdefault(session_id, []).append(topic)
     answered = dict(
         (
             await db.execute(
@@ -159,8 +172,10 @@ async def list_my_sessions(
                 expires_at=session.expires_at,
                 failure_reason=session.failure_reason,
                 answered=answered.get(session.id, 0),
-                total_questions=totals.get(session.id, 0),
+                total_questions=len(topics.get(session.id, [])),
+                topics=_distinct(topics.get(session.id, [])),
                 created_at=session.created_at,
+                updated_at=session.updated_at,
                 overall=overall.get(session.id),
             )
         )

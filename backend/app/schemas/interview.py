@@ -47,6 +47,11 @@ class SessionRead(BaseModel):
     failure_reason: str | None = None
     answered: int = 0
     total_questions: int = 0
+    # Distinct question topics, in question order — what the interview covers.
+    topics: list[str] = []
+    created_at: datetime | None = None
+    # Last state change; for a finished session, roughly when it finished.
+    updated_at: datetime | None = None
 
 
 class SessionSummary(SessionRead):

@@ -216,6 +216,11 @@ async def test_candidate_lists_only_their_own_sessions(
     assert rows[0]["state"] == "NEEDS_HUMAN_REVIEW"
     assert rows[0]["overall"] is not None
     assert rows[0]["answered"] == rows[0]["total_questions"] > 0
+    # Distinct topics, one entry each, and the same on the single-session read.
+    assert rows[0]["topics"] and len(set(rows[0]["topics"])) == len(rows[0]["topics"])
+    assert rows[0]["updated_at"] is not None
+    single = (await client.get(f"{API}/sessions/{sid}", headers=mine)).json()
+    assert single["topics"] == rows[0]["topics"]
 
 
 async def test_recruiter_session_detail(
