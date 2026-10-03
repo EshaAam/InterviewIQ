@@ -40,3 +40,6 @@ uploads/
 
 # Load-test output (the baseline summary lives in docs/PROGRESS.md)
 loadtest/results/
+
+# Local design/planning docs (kept out of GitHub)
+docs/
