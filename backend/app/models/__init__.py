@@ -7,6 +7,7 @@ individual modules, wherever the full metadata is needed.
 
 from app.db.base import Base
 from app.models.answer import Answer
+from app.models.coverage import KBCoverageMiss
 from app.models.evaluation import Evaluation
 from app.models.extracted_skill import ExtractedSkill
 from app.models.knowledge import KB_EMBEDDING_DIM, KBChunk, KBDocument
@@ -34,4 +35,5 @@ __all__ = [
     "KBDocument",
     "KBChunk",
     "KB_EMBEDDING_DIM",
+    "KBCoverageMiss",
 ]

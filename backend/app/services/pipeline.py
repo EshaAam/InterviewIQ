@@ -38,6 +38,7 @@ from app.models import (
     ExtractedSkill,
     InterviewSession,
     KBChunk,
+    KBCoverageMiss,
     LLMCall,
     Question,
     Report,
@@ -52,7 +53,7 @@ from app.schemas.pipeline import (
     QuestionGenerationResult,
     SkillExtractionResult,
 )
-from app.services import ledger
+from app.services import job_match, ledger
 from app.services.grading import grade
 from app.services.grounding import GroundedContext, build_context
 from app.services.grounding import build_prompt as build_grounded_prompt
@@ -254,6 +255,7 @@ async def generate_questions(
         # must never fail just because the knowledge base is incomplete.
         context = GroundedContext()
         if settings.RAG_ENABLED and session.resume_id is not None:
+            active = embedder or get_embedder()
             skills = list(
                 await db.scalars(
                     select(ExtractedSkill).where(
@@ -261,7 +263,30 @@ async def generate_questions(
                     )
                 )
             )
-            context = await build_context(db, embedder or get_embedder(), skills)
+
+            # A job description shifts what the interview is *for*: asking about
+            # what the resume already evidences wastes the questions, because the
+            # answer is on the page. Retrieve for the gaps instead. The matching
+            # runs on the local embedder, so it costs no provider quota.
+            if session.job_description:
+                matches = await job_match.match(active, session.job_description, skills)
+                session.jd_gaps = job_match.gaps(matches)
+                await db.flush()
+
+            context = await build_context(
+                db, active, skills, extra_queries=session.jd_gaps or []
+            )
+
+            # Record what the corpus could not answer. The knowledge base was
+            # scoped narrowly on purpose and only improves if something says
+            # what to write next; guessing produces a corpus shaped like its
+            # author's assumptions rather than like real candidates.
+            for missed, query in context.uncovered:
+                db.add(
+                    KBCoverageMiss(skill=missed, query=query, session_id=session_id)
+                )
+            if context.uncovered:
+                await db.flush()
 
         if context.is_empty:
             prompt = f"Generate interview questions for a candidate with:\n{resume_text}"

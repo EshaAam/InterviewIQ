@@ -48,9 +48,11 @@ class GroundedContext:
 
     #: label -> chunk, in the order they appear in the prompt.
     sources: dict[str, RetrievedChunk] = field(default_factory=dict)
-    #: Skills that retrieved nothing. Reported so "why was this ungrounded?"
-    #: has an answer without re-running retrieval.
-    uncovered_skills: list[str] = field(default_factory=list)
+    #: (label, query) for everything that retrieved nothing. Reported so
+    #: "why was this ungrounded?" has an answer without re-running retrieval,
+    #: and so the corpus has a list of what to cover next. The query is kept
+    #: because a skill name alone rarely explains why nothing matched.
+    uncovered: list[tuple[str, str]] = field(default_factory=list)
     tokens_used: int = 0
 
     @property
@@ -89,29 +91,38 @@ async def build_context(
     embedder: Embedder,
     skills: list[ExtractedSkill],
     *,
+    extra_queries: list[str] | None = None,
     k: int | None = None,
     token_budget: int | None = None,
 ) -> GroundedContext:
-    """Retrieve passages for each skill and pack them into a labelled block."""
+    """Retrieve passages for each skill and pack them into a labelled block.
+
+    `extra_queries` are job-description gaps. They are retrieved *first*, so
+    when the budget runs out it is the already-evidenced skills that get
+    dropped rather than the requirements the interview is actually meant to
+    probe.
+    """
     context = GroundedContext()
-    if not skills:
+    targets: list[tuple[str, str]] = [(q, q) for q in (extra_queries or [])]
+    targets += [
+        (s.name, f"{s.name} {s.evidence_span}".strip()) for s in skills
+    ]
+    if not targets:
         return context
 
     top_k = k if k is not None else settings.RAG_TOP_K
     budget = token_budget if token_budget is not None else settings.RAG_CONTEXT_TOKEN_BUDGET
 
+    # The evidence span carries context the bare skill name does not —
+    # "Postgres" alone retrieves differently from "tuned Postgres indexes for a
+    # reporting workload" — which is why the query is built from both.
     per_skill: list[list[RetrievedChunk]] = []
-    for skill in skills:
-        # The evidence span is the sentence of the resume the skill was pulled
-        # from, so it carries context the bare skill name does not — "Postgres"
-        # alone retrieves differently from "tuned Postgres indexes for a
-        # reporting workload".
-        query = f"{skill.name} {skill.evidence_span}".strip()
+    for label, query in targets:
         hits = await search(db, embedder, query, k=top_k)
         if hits:
             per_skill.append(hits)
         else:
-            context.uncovered_skills.append(skill.name)
+            context.uncovered.append((label, query))
 
     seen: set[str] = set()
     index = 1

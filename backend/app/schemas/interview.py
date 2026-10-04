@@ -37,6 +37,10 @@ class ResumeRead(BaseModel):
 
 class SessionCreate(BaseModel):
     resume_id: uuid.UUID
+    # Optional. When present, question generation targets the requirements the
+    # resume does not evidence rather than the skills it does — an interview
+    # that asks about what is already on the page is largely wasted.
+    job_description: str | None = Field(default=None, max_length=20_000)
 
 
 class SessionRead(BaseModel):
@@ -238,6 +242,11 @@ class RecruiterSessionDetail(BaseModel):
     created_at: datetime
     expires_at: datetime | None
     failure_reason: str | None
+    job_description: str | None = None
+    # Requirements the resume did not evidence, as computed at generation time.
+    # Stored rather than recomputed so this shows what the questions actually
+    # targeted, not what they would target against today's thresholds.
+    jd_gaps: list[str] = Field(default_factory=list)
     questions: list[QuestionDetail]
     report: ReportRead | None
     integrity_flag: bool = False

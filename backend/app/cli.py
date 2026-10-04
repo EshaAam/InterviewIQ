@@ -241,6 +241,64 @@ async def _eval_retrieval(args: argparse.Namespace) -> None:
         )
 
 
+async def _kb_gaps(args: argparse.Namespace) -> None:
+    """What the knowledge base was asked for and could not answer.
+
+    The corpus was scoped narrowly on purpose and only improves if something
+    says what to write next. Guessing produces a knowledge base shaped like its
+    author's assumptions; this is shaped like what candidates were actually
+    asked about.
+    """
+    from datetime import UTC, datetime, timedelta
+
+    from sqlalchemy import func, select
+
+    from app.db.session import async_session_factory
+    from app.models import KBCoverageMiss
+
+    since = datetime.now(UTC) - timedelta(days=args.days)
+    async with async_session_factory() as db:
+        rows = (
+            await db.execute(
+                select(
+                    KBCoverageMiss.skill,
+                    func.count(KBCoverageMiss.id),
+                    func.max(KBCoverageMiss.created_at),
+                )
+                .where(KBCoverageMiss.created_at >= since)
+                .group_by(KBCoverageMiss.skill)
+                .order_by(func.count(KBCoverageMiss.id).desc())
+                .limit(args.limit)
+            )
+        ).all()
+        example = {
+            skill: await db.scalar(
+                select(KBCoverageMiss.query)
+                .where(KBCoverageMiss.skill == skill)
+                .order_by(KBCoverageMiss.created_at.desc())
+                .limit(1)
+            )
+            for skill, _, _ in rows
+        }
+
+    if not rows:
+        print(f"No coverage gaps recorded in the last {args.days} days.")
+        print("Either the corpus covers what was asked, or no grounded")
+        print("interviews have run — check RAG_ENABLED.")
+        return
+
+    print(f"Skills the knowledge base could not answer (last {args.days} days)\n")
+    width = max(len(skill) for skill, _, _ in rows)
+    print(f"  {'skill':<{width}}  {'misses':>6}  last seen")
+    print(f"  {'-' * width}  {'-' * 6}  {'-' * 10}")
+    for skill, count, last in rows:
+        print(f"  {skill:<{width}}  {count:>6}  {last:%Y-%m-%d}")
+    print("\nMost recent query per skill, so a near-miss can be reproduced:")
+    for skill, _, _ in rows:
+        print(f"  {skill}: {(example.get(skill) or '')[:90]}")
+    print("\nWrite the top entries into backend/kb/, then: python -m app.cli ingest-kb")
+
+
 _KEY_TO_SCORE = {"0": 0.0, "1": 0.25, "2": 0.5, "3": 0.75, "4": 1.0}
 
 
@@ -359,6 +417,12 @@ def main() -> None:
         help="exit non-zero if hybrid recall@k falls below this (for CI)",
     )
 
+    gaps = commands.add_parser(
+        "kb-gaps", help="skills the knowledge base could not answer"
+    )
+    gaps.add_argument("--days", type=int, default=30, help="look-back window")
+    gaps.add_argument("--limit", type=int, default=20, help="how many skills to show")
+
     label = commands.add_parser("label-grading", help="hand-label the golden set")
     label.add_argument(
         "--all", action="store_true", help="revisit items that already have a human label"
@@ -377,6 +441,8 @@ def main() -> None:
             asyncio.run(_ingest_kb(args))
         case "eval-retrieval":
             asyncio.run(_eval_retrieval(args))
+        case "kb-gaps":
+            asyncio.run(_kb_gaps(args))
         case "label-grading":
             _label_grading(args)
 

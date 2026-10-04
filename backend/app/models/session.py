@@ -10,7 +10,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import JSON, DateTime, ForeignKey, String, Text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -52,5 +52,13 @@ class InterviewSession(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
     # Reproducibility metadata (populated in later phases).
+    #: Optional job description this interview is for. When present, question
+    #: generation targets the requirements the resume does not evidence rather
+    #: than the skills it does - the gap is what an interview should probe.
+    job_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: Requirements found in the JD but not evidenced by the resume, written
+    #: at generation time. Stored rather than recomputed so a recruiter sees
+    #: what the questions actually targeted, not what they would target now.
+    jd_gaps: Mapped[list[str]] = mapped_column(JSON, default=list)
     prompt_version: Mapped[str | None] = mapped_column(String(64), default=None)
     model_name: Mapped[str | None] = mapped_column(String(128), default=None)

@@ -121,6 +121,14 @@ class Settings(BaseSettings):
     # ten-skill resume turning into one enormous request.
     RAG_CONTEXT_TOKEN_BUDGET: int = 2400
 
+    # A job-description requirement counts as evidenced by the resume at or
+    # above this cosine. Unlike RAG_MIN_SIMILARITY this is **not** calibrated
+    # against a golden set - it is reasoned by analogy from the same
+    # measurements (bge-small scores ~0.44 for unrelated text and 0.73+ for a
+    # genuine match), so 0.65 sits in the same place in that distribution.
+    # Calibrating it properly needs labelled (requirement, skill) pairs.
+    JD_MATCH_THRESHOLD: float = 0.65
+
     # --- Cost & budget ---
     # Rough per-1K-token prices (USD); tune per model. Metered into LLMCall.
     LLM_PRICE_PROMPT_PER_1K: float = 0.000075

@@ -135,6 +135,8 @@ async def session_detail(session_id: uuid.UUID, db: DbSession) -> RecruiterSessi
         created_at=session.created_at,
         expires_at=session.expires_at,
         failure_reason=session.failure_reason,
+        job_description=session.job_description,
+        jd_gaps=session.jd_gaps or [],
         questions=[
             QuestionDetail(
                 id=q.id,

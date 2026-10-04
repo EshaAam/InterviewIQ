@@ -99,7 +99,11 @@ async def create_session(
     if resume is None or resume.user_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Resume not found")
 
-    session = InterviewSession(user_id=user.id, resume_id=resume.id)
+    session = InterviewSession(
+        user_id=user.id,
+        resume_id=resume.id,
+        job_description=(payload.job_description or None),
+    )
     db.add(session)
     # Commit, *then* dispatch. A worker is a different connection: if the task
     # were enqueued first, a fast worker could look for this row before our

@@ -274,7 +274,7 @@ async def test_uncovered_skills_are_recorded_for_diagnosis(
     ]
     context = await build_context(db_session, rag_on, skills)
     assert context.is_empty
-    assert context.uncovered_skills == ["kubernetes"]
+    assert context.uncovered == [("kubernetes", "kubernetes k8s")]
 
 
 async def test_no_skills_means_no_retrieval_at_all(db_session, rag_on):
