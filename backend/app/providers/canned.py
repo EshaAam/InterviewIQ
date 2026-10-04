@@ -86,7 +86,10 @@ def _fake_evaluation(prompt: str) -> AnswerEvaluationResult:
     # Deterministic, plausible evaluation based on word overlap between each
     # expected concept and the answer text — the same signal the (fake)
     # embedding pass uses, so the two passes naturally agree for real answers.
-    before, _, after = prompt.partition("Answer:")
+    # rpartition, not partition: the grounded prompt carries reference
+    # passages before the answer, and one of them may contain the word
+    # "Answer:". The real answer is always last.
+    before, _, after = prompt.rpartition("Answer:")
     answer_tokens = set(re.findall(r"[a-z0-9]+", after.lower()))
     concepts = [
         line.strip("- ").strip()

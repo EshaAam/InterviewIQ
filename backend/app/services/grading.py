@@ -47,10 +47,37 @@ class GradeOutcome:
     llm_available: bool = True
 
 
-def build_prompt(question: str, concepts: Sequence[str], answer: str) -> str:
-    """The grading prompt. Shared so the harness grades what production grades."""
+def build_prompt(
+    question: str,
+    concepts: Sequence[str],
+    answer: str,
+    *,
+    sources: Sequence[str] = (),
+) -> str:
+    """The grading prompt. Shared so the harness grades what production grades.
+
+    `sources` are the passages the *question* cited, passed through unchanged —
+    grading never retrieves. Two reasons. Retrieving again would let a later
+    knowledge-base edit or retriever tweak silently move the score of an
+    interview that finished weeks ago, which destroys reproducibility. And the
+    judge should be checking the answer against the same material the answer key
+    was written from; fresh passages would be a different reference.
+    """
     concept_lines = "\n".join(f"- {c}" for c in concepts)
-    return f"Question: {question}\nExpected concepts:\n{concept_lines}\nAnswer:\n{answer}"
+    prompt = f"Question: {question}\nExpected concepts:\n{concept_lines}\n"
+    if sources:
+        rendered = "\n\n".join(f"[S{i}] {s}" for i, s in enumerate(sources, start=1))
+        prompt += (
+            "Reference sources — the material these expected concepts were "
+            "written from.\nDecide whether the answer covers each concept as "
+            "described here, rather\nthan against your own recollection. Treat "
+            "the sources as reference, not\nas a required wording: an answer may "
+            "cover a concept in different words.\n\n"
+            f"{rendered}\n"
+        )
+    # The answer goes last so a naive split on the final "Answer:" is correct
+    # even when a source happens to contain that word.
+    return prompt + f"Answer:\n{answer}"
 
 
 async def deterministic_pass(
@@ -78,6 +105,7 @@ async def grade(
     embedder: Embedder,
     complete: CompleteFn,
     is_retryable: Callable[[Exception], bool],
+    sources: Sequence[str] = (),
     coverage_threshold: float | None = None,
     divergence_threshold: float | None = None,
     rerun_count: int | None = None,
@@ -103,7 +131,7 @@ async def grade(
     deterministic = await deterministic_pass(
         embedder, answer, concepts, coverage_threshold=coverage_threshold
     )
-    prompt = build_prompt(question, concepts, answer)
+    prompt = build_prompt(question, concepts, answer, sources=sources)
 
     try:
         first = await complete(prompt, 0.0)

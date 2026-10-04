@@ -13,6 +13,7 @@ the budget numbers the recruiter cost page reports.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -60,6 +61,33 @@ def _completer(provider: LLMProvider):
     return complete
 
 
+async def sources_for_golden_items(
+    db,
+    embedder: Embedder,
+    items: list[GoldenItem],
+    *,
+    k: int | None = None,
+) -> dict[str, list[str]]:
+    """Retrieve the passages a *grounded* version of each item would have cited.
+
+    A simulation, and worth being explicit about why. Real grounded grading
+    replays citations stored on the question at generation time; the golden set
+    predates grounding and has none. Retrieving here from the question and its
+    concepts approximates what generation would have attached, which is enough
+    to answer "does giving the judge reference material change its agreement
+    with a human?" — but it is not a replay of a real interview, and the
+    comparison should be read as indicative rather than final.
+    """
+    from app.services.retrieval import search
+
+    out: dict[str, list[str]] = {}
+    for item in items:
+        query = f"{item.question} {' '.join(item.expected_concepts)}"
+        hits = await search(db, embedder, query, k=k)
+        out[item.id] = [f"{h.heading_path}\n{h.text}" for h in hits]
+    return out
+
+
 async def evaluate(
     items: list[GoldenItem],
     *,
@@ -67,6 +95,8 @@ async def evaluate(
     provider: LLMProvider,
     runs: int = 1,
     coverage_threshold: float | None = None,
+    sources_by_item: dict[str, list[str]] | None = None,
+    delay_seconds: float = 0.0,
 ) -> tuple[GradingReport, list[ItemResult]]:
     """Grade every item `runs` times. The last run's scores are the reported ones.
 
@@ -83,7 +113,15 @@ async def evaluate(
     for _ in range(runs):
         this_run: list[float] = []
         latest = []
-        for item in items:
+        for index, item in enumerate(items):
+            # Pace the run. A free-tier key allows a low requests-per-minute
+            # rate, and a divergent item costs three calls rather than one, so
+            # an unpaced sweep benches every key in the pool within seconds and
+            # the whole evaluation dies partway through. The retry wrapper
+            # cannot rescue it either: its backoff is tuned for a transient
+            # blip, not for a 60-second rate-limit cooldown.
+            if delay_seconds and index:
+                await asyncio.sleep(delay_seconds)
             outcome = await grade(
                 question=item.question,
                 concepts=item.expected_concepts,
@@ -92,6 +130,7 @@ async def evaluate(
                 complete=complete,
                 is_retryable=is_retryable,
                 coverage_threshold=coverage_threshold,
+                sources=(sources_by_item or {}).get(item.id, ()),
             )
             this_run.append(outcome.final_score)
             latest.append(

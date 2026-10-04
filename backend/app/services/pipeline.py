@@ -37,6 +37,7 @@ from app.models import (
     Evaluation,
     ExtractedSkill,
     InterviewSession,
+    KBChunk,
     LLMCall,
     Question,
     Report,
@@ -57,7 +58,7 @@ from app.services.grounding import GroundedContext, build_context
 from app.services.grounding import build_prompt as build_grounded_prompt
 from app.services.session_service import SessionService, can_transition
 
-PROMPT_VERSION = "p4-rag-v1"
+PROMPT_VERSION = "p5-rag-v1"
 
 # Worth trying again later; everything else is a real answer.
 RETRYABLE: tuple[type[Exception], ...] = (LLMTransientError, LLMCircuitOpen)
@@ -310,6 +311,32 @@ async def generate_questions(
 
 # --- stage 3: evaluate one answer ---
 
+async def _cited_sources(db: AsyncSession, question: Question) -> list[str]:
+    """The passages this question was generated from, in citation order.
+
+    Read from `question.source_chunk_ids`, never retrieved afresh. Grading that
+    retrieves would let a knowledge-base edit move the score of an interview
+    that already finished — the system would stop being able to defend a number
+    it had already given someone.
+
+    A chunk that has since been removed is simply skipped rather than failing
+    the grade: the citation records what the model was shown, and losing one
+    source should degrade the reference, not the candidate's result.
+    """
+    cited = question.source_chunk_ids or []
+    if not cited:
+        return []
+    try:
+        ids = [uuid.UUID(c) for c in cited]
+    except ValueError:  # pragma: no cover - guarded at write time
+        return []
+
+    rows = list(await db.scalars(select(KBChunk).where(KBChunk.id.in_(ids))))
+    by_id = {str(chunk.id): chunk for chunk in rows}
+    return [
+        f"{by_id[c].heading_path}\n{by_id[c].text}" for c in cited if c in by_id
+    ]
+
 async def evaluate_answer(
     db: AsyncSession,
     provider: LLMProvider,
@@ -356,6 +383,7 @@ async def evaluate_answer(
         embedder=embedder or get_embedder(),
         complete=complete,
         is_retryable=is_retryable,
+        sources=await _cited_sources(db, question),
     )
 
     return await _insert_evaluation(

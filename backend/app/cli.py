@@ -85,12 +85,27 @@ async def _eval_grading(args: argparse.Namespace) -> None:
     embedder = get_embedder()
     provider = get_provider()
 
+    sources_by_item = None
+    if args.grounded:
+        from app.db.session import async_session_factory
+        from app.eval.grading_eval import sources_for_golden_items
+
+        async with async_session_factory() as db:
+            sources_by_item = await sources_for_golden_items(db, embedder, items)
+        covered = sum(1 for v in sources_by_item.values() if v)
+        print(f"Grounded: retrieved passages for {covered}/{len(items)} items")
+
     print(
         f"Grading {len(items)} golden items — llm={provider.name}, "
         f"embedder={embedder.name} ({resolved_embedding_provider()}), runs={args.runs}\n"
     )
     report, results = await evaluate(
-        items, embedder=embedder, provider=provider, runs=args.runs
+        items,
+        embedder=embedder,
+        provider=provider,
+        runs=args.runs,
+        sources_by_item=sources_by_item,
+        delay_seconds=args.delay,
     )
     print(report.table())
 
@@ -299,6 +314,17 @@ def main() -> None:
         "--runs", type=int, default=1, help="grade each item N times to measure stability"
     )
     run_eval.add_argument("--name", default="grading", help="baseline filename stem")
+    run_eval.add_argument(
+        "--delay",
+        type=float,
+        default=0.0,
+        help="seconds between items; needed to stay inside free-tier rate limits",
+    )
+    run_eval.add_argument(
+        "--grounded",
+        action="store_true",
+        help="give the judge retrieved reference passages (simulates grounded grading)",
+    )
     run_eval.add_argument(
         "--no-write", dest="write", action="store_false", help="print only, save nothing"
     )

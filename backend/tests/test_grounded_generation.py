@@ -35,7 +35,7 @@ from app.providers.base import LLMValidationError
 from app.schemas.pipeline import GeneratedQuestion, QuestionGenerationResult
 from app.services.grounding import GroundedContext, build_context, build_prompt
 from app.services.kb_ingest import DEFAULT_KB_DIR, ingest_kb
-from app.services.pipeline import generate_questions
+from app.services.pipeline import PROMPT_VERSION, generate_questions
 from app.services.retrieval import RetrievedChunk
 
 RESUME = (
@@ -127,15 +127,24 @@ async def test_rag_on_produces_grounded_questions_citing_real_chunks(
             uuid.UUID(cited)  # and be a real id, not a label that leaked through
 
 
-async def test_the_prompt_version_distinguishes_the_two_paths(
+async def test_the_prompt_version_is_recorded_on_the_session_and_its_questions(
     db_session, provider, session_with_skills, embedder
 ):
-    """Grounded and ungrounded output must be tellable apart after the fact —
-    in a report, in the ledger, and in the LLM cache key."""
+    """Output from different prompt generations must be tellable apart after the
+    fact — in a report, in the ledger, and in the LLM cache key.
+
+    Asserted against the constant rather than a literal: pinning the string here
+    would mean every deliberate bump breaks a test for no reason, which teaches
+    people to update the expectation without thinking about why it moved.
+    """
     session = await generate_questions(
         db_session, provider, session_with_skills.id, embedder=embedder
     )
-    assert session.prompt_version == "p4-rag-v1"
+    assert session.prompt_version == PROMPT_VERSION
+
+    questions = list(await db_session.scalars(select(Question)))
+    assert questions
+    assert all(q.prompt_version == PROMPT_VERSION for q in questions)
 
 
 # --- the fallback ----------------------------------------------------------
