@@ -31,6 +31,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.embedders import Embedder, get_embedder
 from app.models import (
     Answer,
     Evaluation,
@@ -51,7 +52,7 @@ from app.schemas.pipeline import (
     SkillExtractionResult,
 )
 from app.services import ledger
-from app.services.scoring import coverage_ratio, llm_coverage_score, reconcile
+from app.services.grading import grade
 from app.services.session_service import SessionService, can_transition
 
 PROMPT_VERSION = "p2-fake-v1"
@@ -280,8 +281,19 @@ async def generate_questions(
 # --- stage 3: evaluate one answer ---
 
 async def evaluate_answer(
-    db: AsyncSession, provider: LLMProvider, answer_id: uuid.UUID
+    db: AsyncSession,
+    provider: LLMProvider,
+    answer_id: uuid.UUID,
+    *,
+    embedder: Embedder | None = None,
 ) -> Evaluation:
+    """Load the answer, grade it, persist the outcome.
+
+    The grading *policy* — both passes, the reconcile, the re-run on divergence
+    — lives in `app.services.grading` so the offline evaluation harness can run
+    it without a database. This function is the database half: fetch rows, meter
+    the calls, write one `Evaluation`.
+    """
     existing = await db.scalar(
         select(Evaluation).where(Evaluation.answer_id == answer_id)
     )
@@ -295,97 +307,41 @@ async def evaluate_answer(
     if question is None:
         raise ValueError(f"question for answer {answer_id} not found")
     session = await db.get(InterviewSession, question.session_id)
-    meter = {"session_id": question.session_id, "user_id": session.user_id if session else None}
 
-    concepts = question.expected_concepts or []
-    concept_lines = "\n".join(f"- {c}" for c in concepts)
-    prompt = (
-        f"Question: {question.text}\n"
-        f"Expected concepts:\n{concept_lines}\n"
-        f"Answer:\n{answer.text}"
-    )
-
-    # --- Deterministic pass: embed answer + concepts, coverage ratio. No LLM. ---
-    deterministic_score = 0.0
-    if concepts:
-        vectors = await provider.embed([answer.text, *concepts])
-        deterministic_score = coverage_ratio(
-            vectors[0], vectors[1:], threshold=settings.EVAL_COVERAGE_THRESHOLD
-        )
-
-    # --- LLM pass (temp 0 for reproducibility). ---
-    try:
-        llm: AnswerEvaluationResult = await _complete_metered(
-            db, provider, prompt, AnswerEvaluationResult, temperature=0.0, **meter
-        )
-    except LLMError as exc:
-        if is_retryable(exc):
-            raise
-        # The model can't produce a usable grade for this answer even after
-        # the repair attempt. Don't fail the whole interview over one answer:
-        # score it on the deterministic pass alone and put it in front of a
-        # human, which is exactly what the review queue exists for.
-        return await _insert_evaluation(
+    async def complete(prompt: str, temperature: float) -> AnswerEvaluationResult:
+        return await _complete_metered(
             db,
-            Evaluation(
-                answer_id=answer_id,
-                concept_coverage={},
-                llm_scores={},
-                deterministic_score=round(deterministic_score, 4),
-                final_score=round(deterministic_score, 4),
-                confidence=0.0,
-                needs_review=True,
-                model_name=provider.name,
-                temperature=0.0,
-                prompt_version=PROMPT_VERSION,
-                run_count=0,
-            ),
+            provider,
+            prompt,
+            AnswerEvaluationResult,
+            session_id=question.session_id,
+            user_id=session.user_id if session else None,
+            temperature=temperature,
         )
-    coverage_map = {c.concept: c.covered for c in llm.concept_coverage}
-    llm_scores = [llm_coverage_score(list(coverage_map.values()))]
 
-    # --- Reconcile. On divergence, re-run the LLM (nonzero temp) to confirm. ---
-    result = reconcile(
-        llm_scores, deterministic_score, threshold=settings.EVAL_DIVERGENCE_THRESHOLD
+    outcome = await grade(
+        question=question.text,
+        concepts=question.expected_concepts or [],
+        answer=answer.text,
+        embedder=embedder or get_embedder(),
+        complete=complete,
+        is_retryable=is_retryable,
     )
-    if result.needs_review and settings.EVAL_RERUN_COUNT > 0:
-        for _ in range(settings.EVAL_RERUN_COUNT):
-            try:
-                rerun = await _complete_metered(
-                    db,
-                    provider,
-                    prompt,
-                    AnswerEvaluationResult,
-                    temperature=settings.EVAL_RERUN_TEMPERATURE,
-                    **meter,
-                )
-            except LLMError as exc:
-                if is_retryable(exc):
-                    raise
-                break  # a malformed re-run: decide on the runs we have
-            llm_scores.append(
-                llm_coverage_score([c.covered for c in rerun.concept_coverage])
-            )
-        result = reconcile(
-            llm_scores,
-            deterministic_score,
-            threshold=settings.EVAL_DIVERGENCE_THRESHOLD,
-        )
 
     return await _insert_evaluation(
         db,
         Evaluation(
             answer_id=answer_id,
-            concept_coverage=coverage_map,
-            llm_scores=llm.llm_scores.model_dump(),
-            deterministic_score=round(deterministic_score, 4),
-            final_score=result.final_score,
-            confidence=result.confidence,
-            needs_review=result.needs_review,
+            concept_coverage=outcome.concept_coverage,
+            llm_scores=outcome.rubric,
+            deterministic_score=outcome.deterministic_score,
+            final_score=outcome.final_score,
+            confidence=outcome.confidence,
+            needs_review=outcome.needs_review,
             model_name=provider.name,
             temperature=0.0,
             prompt_version=PROMPT_VERSION,
-            run_count=result.run_count,
+            run_count=outcome.run_count,
         ),
     )
 

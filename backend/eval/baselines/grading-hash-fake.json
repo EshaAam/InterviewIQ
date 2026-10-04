@@ -1,0 +1,456 @@
+{
+  "recorded_at": "2026-10-04T17:16:53+00:00",
+  "config": {
+    "llm_provider": "fake",
+    "embedding_provider": "hash",
+    "embedding_model": "hash-64",
+    "coverage_threshold": 0.55,
+    "divergence_threshold": 0.35,
+    "rerun_count": 2
+  },
+  "metrics": {
+    "n": 48,
+    "label_source": "human",
+    "runs": 3,
+    "mae": 0.3259,
+    "kappa": 0.0769,
+    "review_rate": 0.3958,
+    "score_spread": 0.0,
+    "mean_predicted": 0.2147,
+    "mean_label": 0.5
+  },
+  "items": [
+    {
+      "id": "py-01",
+      "topic": "python",
+      "label": 1.0,
+      "predicted": 0.5708,
+      "deterministic": 0.3333,
+      "llm_median": 0.8083333333333332,
+      "needs_review": true
+    },
+    {
+      "id": "py-02",
+      "topic": "python",
+      "label": 0.75,
+      "predicted": 0.1785,
+      "deterministic": 0.0,
+      "llm_median": 0.357,
+      "needs_review": true
+    },
+    {
+      "id": "py-03",
+      "topic": "python",
+      "label": 0.5,
+      "predicted": 0.0555,
+      "deterministic": 0.0,
+      "llm_median": 0.111,
+      "needs_review": false
+    },
+    {
+      "id": "py-04",
+      "topic": "python",
+      "label": 0.25,
+      "predicted": 0.125,
+      "deterministic": 0.0,
+      "llm_median": 0.25,
+      "needs_review": false
+    },
+    {
+      "id": "py-05",
+      "topic": "python",
+      "label": 0.0,
+      "predicted": 0.0278,
+      "deterministic": 0.0,
+      "llm_median": 0.05566666666666667,
+      "needs_review": false
+    },
+    {
+      "id": "py-06",
+      "topic": "python",
+      "label": 0.75,
+      "predicted": 0.1667,
+      "deterministic": 0.0,
+      "llm_median": 0.3333333333333333,
+      "needs_review": false
+    },
+    {
+      "id": "py-07",
+      "topic": "python",
+      "label": 0.5,
+      "predicted": 0.1895,
+      "deterministic": 0.0,
+      "llm_median": 0.379,
+      "needs_review": true
+    },
+    {
+      "id": "py-08",
+      "topic": "python",
+      "label": 0.25,
+      "predicted": 0.1028,
+      "deterministic": 0.0,
+      "llm_median": 0.20566666666666666,
+      "needs_review": false
+    },
+    {
+      "id": "fa-01",
+      "topic": "fastapi",
+      "label": 1.0,
+      "predicted": 0.2138,
+      "deterministic": 0.0,
+      "llm_median": 0.42766666666666664,
+      "needs_review": true
+    },
+    {
+      "id": "fa-02",
+      "topic": "fastapi",
+      "label": 0.75,
+      "predicted": 0.4537,
+      "deterministic": 0.3333,
+      "llm_median": 0.574,
+      "needs_review": false
+    },
+    {
+      "id": "fa-03",
+      "topic": "fastapi",
+      "label": 0.5,
+      "predicted": 0.1072,
+      "deterministic": 0.0,
+      "llm_median": 0.21433333333333335,
+      "needs_review": false
+    },
+    {
+      "id": "fa-04",
+      "topic": "fastapi",
+      "label": 0.5,
+      "predicted": 0.1263,
+      "deterministic": 0.0,
+      "llm_median": 0.25266666666666665,
+      "needs_review": false
+    },
+    {
+      "id": "fa-05",
+      "topic": "fastapi",
+      "label": 0.25,
+      "predicted": 0.1102,
+      "deterministic": 0.0,
+      "llm_median": 0.22033333333333335,
+      "needs_review": false
+    },
+    {
+      "id": "fa-06",
+      "topic": "fastapi",
+      "label": 0.75,
+      "predicted": 0.5473,
+      "deterministic": 0.3333,
+      "llm_median": 0.7613333333333333,
+      "needs_review": true
+    },
+    {
+      "id": "fa-07",
+      "topic": "fastapi",
+      "label": 0.0,
+      "predicted": 0.0477,
+      "deterministic": 0.0,
+      "llm_median": 0.09533333333333333,
+      "needs_review": false
+    },
+    {
+      "id": "fa-08",
+      "topic": "fastapi",
+      "label": 0.25,
+      "predicted": 0.0685,
+      "deterministic": 0.0,
+      "llm_median": 0.13699999999999998,
+      "needs_review": false
+    },
+    {
+      "id": "sq-01",
+      "topic": "sql",
+      "label": 1.0,
+      "predicted": 0.3698,
+      "deterministic": 0.3333,
+      "llm_median": 0.40633333333333327,
+      "needs_review": false
+    },
+    {
+      "id": "sq-02",
+      "topic": "sql",
+      "label": 0.75,
+      "predicted": 0.2167,
+      "deterministic": 0.0,
+      "llm_median": 0.43333333333333335,
+      "needs_review": true
+    },
+    {
+      "id": "sq-03",
+      "topic": "sql",
+      "label": 0.5,
+      "predicted": 0.0625,
+      "deterministic": 0.0,
+      "llm_median": 0.125,
+      "needs_review": false
+    },
+    {
+      "id": "sq-04",
+      "topic": "sql",
+      "label": 0.5,
+      "predicted": 0.2347,
+      "deterministic": 0.0,
+      "llm_median": 0.4693333333333333,
+      "needs_review": true
+    },
+    {
+      "id": "sq-05",
+      "topic": "sql",
+      "label": 0.25,
+      "predicted": 0.0952,
+      "deterministic": 0.0,
+      "llm_median": 0.19033333333333333,
+      "needs_review": false
+    },
+    {
+      "id": "sq-06",
+      "topic": "sql",
+      "label": 0.25,
+      "predicted": 0.0238,
+      "deterministic": 0.0,
+      "llm_median": 0.04766666666666666,
+      "needs_review": false
+    },
+    {
+      "id": "sq-07",
+      "topic": "sql",
+      "label": 0.75,
+      "predicted": 0.2778,
+      "deterministic": 0.0,
+      "llm_median": 0.5556666666666666,
+      "needs_review": true
+    },
+    {
+      "id": "sq-08",
+      "topic": "sql",
+      "label": 0.0,
+      "predicted": 0.1222,
+      "deterministic": 0.0,
+      "llm_median": 0.24433333333333337,
+      "needs_review": false
+    },
+    {
+      "id": "js-01",
+      "topic": "javascript",
+      "label": 1.0,
+      "predicted": 0.2595,
+      "deterministic": 0.0,
+      "llm_median": 0.519,
+      "needs_review": true
+    },
+    {
+      "id": "js-02",
+      "topic": "javascript",
+      "label": 0.75,
+      "predicted": 0.2013,
+      "deterministic": 0.0,
+      "llm_median": 0.4026666666666667,
+      "needs_review": true
+    },
+    {
+      "id": "js-03",
+      "topic": "javascript",
+      "label": 0.5,
+      "predicted": 0.1833,
+      "deterministic": 0.0,
+      "llm_median": 0.3666666666666667,
+      "needs_review": true
+    },
+    {
+      "id": "js-04",
+      "topic": "javascript",
+      "label": 0.5,
+      "predicted": 0.4127,
+      "deterministic": 0.3333,
+      "llm_median": 0.492,
+      "needs_review": false
+    },
+    {
+      "id": "js-05",
+      "topic": "javascript",
+      "label": 0.25,
+      "predicted": 0.143,
+      "deterministic": 0.0,
+      "llm_median": 0.28600000000000003,
+      "needs_review": false
+    },
+    {
+      "id": "js-06",
+      "topic": "javascript",
+      "label": 0.25,
+      "predicted": 0.0,
+      "deterministic": 0.0,
+      "llm_median": 0.0,
+      "needs_review": false
+    },
+    {
+      "id": "js-07",
+      "topic": "javascript",
+      "label": 0.75,
+      "predicted": 0.3598,
+      "deterministic": 0.0,
+      "llm_median": 0.7196666666666666,
+      "needs_review": true
+    },
+    {
+      "id": "js-08",
+      "topic": "javascript",
+      "label": 0.0,
+      "predicted": 0.1528,
+      "deterministic": 0.0,
+      "llm_median": 0.3056666666666667,
+      "needs_review": false
+    },
+    {
+      "id": "ht-01",
+      "topic": "http",
+      "label": 1.0,
+      "predicted": 0.5333,
+      "deterministic": 0.3333,
+      "llm_median": 0.7333333333333334,
+      "needs_review": true
+    },
+    {
+      "id": "ht-02",
+      "topic": "http",
+      "label": 0.75,
+      "predicted": 0.2917,
+      "deterministic": 0.0,
+      "llm_median": 0.5833333333333334,
+      "needs_review": true
+    },
+    {
+      "id": "ht-03",
+      "topic": "http",
+      "label": 0.5,
+      "predicted": 0.4167,
+      "deterministic": 0.3333,
+      "llm_median": 0.5,
+      "needs_review": false
+    },
+    {
+      "id": "ht-04",
+      "topic": "http",
+      "label": 0.5,
+      "predicted": 0.0793,
+      "deterministic": 0.0,
+      "llm_median": 0.15866666666666665,
+      "needs_review": false
+    },
+    {
+      "id": "ht-05",
+      "topic": "http",
+      "label": 0.25,
+      "predicted": 0.1112,
+      "deterministic": 0.0,
+      "llm_median": 0.22233333333333336,
+      "needs_review": false
+    },
+    {
+      "id": "ht-06",
+      "topic": "http",
+      "label": 0.75,
+      "predicted": 0.3175,
+      "deterministic": 0.0,
+      "llm_median": 0.635,
+      "needs_review": true
+    },
+    {
+      "id": "ht-07",
+      "topic": "http",
+      "label": 0.25,
+      "predicted": 0.1573,
+      "deterministic": 0.0,
+      "llm_median": 0.31466666666666665,
+      "needs_review": false
+    },
+    {
+      "id": "ht-08",
+      "topic": "http",
+      "label": 0.0,
+      "predicted": 0.2173,
+      "deterministic": 0.0,
+      "llm_median": 0.4346666666666667,
+      "needs_review": true
+    },
+    {
+      "id": "sd-01",
+      "topic": "system-design",
+      "label": 1.0,
+      "predicted": 0.475,
+      "deterministic": 0.3333,
+      "llm_median": 0.6166666666666667,
+      "needs_review": false
+    },
+    {
+      "id": "sd-02",
+      "topic": "system-design",
+      "label": 0.75,
+      "predicted": 0.2407,
+      "deterministic": 0.0,
+      "llm_median": 0.48133333333333334,
+      "needs_review": true
+    },
+    {
+      "id": "sd-03",
+      "topic": "system-design",
+      "label": 0.5,
+      "predicted": 0.0833,
+      "deterministic": 0.0,
+      "llm_median": 0.16666666666666666,
+      "needs_review": false
+    },
+    {
+      "id": "sd-04",
+      "topic": "system-design",
+      "label": 0.5,
+      "predicted": 0.2057,
+      "deterministic": 0.0,
+      "llm_median": 0.41133333333333333,
+      "needs_review": true
+    },
+    {
+      "id": "sd-05",
+      "topic": "system-design",
+      "label": 0.25,
+      "predicted": 0.1577,
+      "deterministic": 0.0,
+      "llm_median": 0.3153333333333333,
+      "needs_review": false
+    },
+    {
+      "id": "sd-06",
+      "topic": "system-design",
+      "label": 0.25,
+      "predicted": 0.1112,
+      "deterministic": 0.0,
+      "llm_median": 0.22233333333333336,
+      "needs_review": false
+    },
+    {
+      "id": "sd-07",
+      "topic": "system-design",
+      "label": 0.75,
+      "predicted": 0.2938,
+      "deterministic": 0.0,
+      "llm_median": 0.5876666666666667,
+      "needs_review": true
+    },
+    {
+      "id": "sd-08",
+      "topic": "system-design",
+      "label": 0.0,
+      "predicted": 0.4073,
+      "deterministic": 0.3333,
+      "llm_median": 0.48133333333333334,
+      "needs_review": false
+    }
+  ]
+}
