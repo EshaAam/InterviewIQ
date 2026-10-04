@@ -21,7 +21,10 @@ x-backend: &backend
 
 services:
   db:
-    image: postgres:16-alpine
+    # pgvector/pgvector ships the `vector` extension that RAG Phase 1 enables;
+    # stock postgres:16-alpine does not have it. Same PG 16 underneath, so the
+    # existing data volume is unaffected.
+    image: pgvector/pgvector:pg16
     env_file: ${ENV_FILE:-.env}  # POSTGRES_USER / _PASSWORD / _DB
     volumes:
       - postgres_data:/var/lib/postgresql/data

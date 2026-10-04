@@ -61,6 +61,29 @@ class Settings(BaseSettings):
     # How long a key is benched after it returns a rate-limit (429).
     GEMINI_KEY_COOLDOWN_SECONDS: float = 60.0
 
+    # --- Embeddings (RAG Phase 1) ---
+    # Separate from LLM_PROVIDER: the knowledge base is embedded once and every
+    # retrieval embeds a query, which is a different cost profile from
+    # generation and wants a local model even when generation stays hosted.
+    #   auto   - what the app did before this seam: hash on the fake provider,
+    #            Gemini otherwise. Changes no behaviour.
+    #   hash   - deterministic bag-of-words; offline, used by the test suite.
+    #   local  - bge-small via fastembed; free, offline, semantic. Recommended.
+    #   gemini - the hosted embedding endpoint (the previous behaviour).
+    EMBEDDING_PROVIDER: Literal["auto", "hash", "local", "gemini"] = "auto"
+    EMBEDDING_MODEL: str = "BAAI/bge-small-en-v1.5"
+    # Must match the width of the pgvector column the chunks are stored in.
+    EMBEDDING_DIM: int = 384
+    # Where fastembed keeps downloaded models. The image pre-populates this so a
+    # worker never fetches a model mid-job; empty uses fastembed's default.
+    EMBEDDING_CACHE_DIR: str = ""
+    # 0 lets onnxruntime choose. Pin it low if several workers share a box.
+    EMBEDDING_THREADS: int = 0
+    # The hashing stand-in's width. Test assertions depend on 64 — don't change.
+    EMBEDDING_HASH_DIM: int = 64
+    # gemini-embedding-001's native width, used only to size a vector column.
+    GEMINI_EMBED_DIM: int = 3072
+
     # --- LLM resilience wrappers (design spec §5) ---
     LLM_CACHE_TTL_SECONDS: int = 86_400
     LLM_RETRY_MAX_ATTEMPTS: int = 2  # attempts *after* the first try

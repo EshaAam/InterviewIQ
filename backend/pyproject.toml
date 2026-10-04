@@ -23,6 +23,16 @@ dependencies = [
     "fpdf2>=2.8.9",
 ]
 
+[project.optional-dependencies]
+# The local embedding model (RAG Phase 1). Optional, and installed only in the
+# container images: it pulls onnxruntime and adds a few hundred MB, which the
+# lint/test CI job has no use for because the suite pins EMBEDDING_PROVIDER=hash.
+# fastembed runs the model as ONNX; sentence-transformers would drag in PyTorch
+# and roughly 2 GB for the same 384-dim vectors.
+embed = [
+    "fastembed>=0.7.0",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=8.3",

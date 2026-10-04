@@ -37,13 +37,27 @@ from app.workers.dispatch import InlineDispatcher, get_dispatcher
 def _test_env(monkeypatch: pytest.MonkeyPatch) -> None:
     # Deterministic test config regardless of the developer's local .env:
     # always the fake provider, and a strong key so JWT emits no warning.
+    from app.embedders.factory import get_embedder
     from app.providers.factory import get_provider
 
     monkeypatch.setattr(settings, "LLM_PROVIDER", "fake")
+    # Pinned, not left on "auto": the suite must never reach for fastembed or
+    # the network, and the hashing vectors are what the cosine assertions
+    # in test_providers / test_evaluation_quality were written against.
+    monkeypatch.setattr(settings, "EMBEDDING_PROVIDER", "hash")
+    # The coverage threshold is calibrated *per embedder* - cosine values are
+    # model-specific, and 0.65 (tuned for bge-small) applied to hashing vectors
+    # drives every deterministic score to ~0, diverging from the LLM pass and
+    # sending the whole suite to NEEDS_HUMAN_REVIEW. Pinning the embedder
+    # without its matching threshold is the exact mistake `app.cli recalibrate`
+    # exists to prevent, so the pair travels together here.
+    monkeypatch.setattr(settings, "EVAL_COVERAGE_THRESHOLD", 0.55)
+    monkeypatch.setattr(settings, "EVAL_DIVERGENCE_THRESHOLD", 0.35)
     monkeypatch.setattr(
         settings, "SECRET_KEY", "test-secret-key-at-least-32-bytes-long-000000"
     )
     get_provider.cache_clear()
+    get_embedder.cache_clear()
 
 
 @pytest.fixture

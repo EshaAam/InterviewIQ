@@ -26,11 +26,19 @@ WORKDIR /app
 # Dependencies are copied first so Docker caches the install layer and
 # only re-runs it when the manifests actually change — not on every edit.
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-install-project
+# --extra embed: the local embedding model (RAG Phase 1). Kept out of the lint
+# and test CI job, which pins EMBEDDING_PROVIDER=hash and has no use for it.
+RUN uv sync --frozen --no-install-project --extra embed
+
+ENV PATH="/app/.venv/bin:$PATH"     EMBEDDING_CACHE_DIR=/opt/models
+
+# Bake the embedding model into the image. The cache lives inside the
+# container, so without this every container start re-downloads ~130 MB and
+# a worker can stall mid-job fetching it. EMBEDDING_CACHE_DIR points the
+# runtime at the same path.
+RUN python -c "from fastembed import TextEmbedding; TextEmbedding(model_name='BAAI/bge-small-en-v1.5', cache_dir='/opt/models')"
 
 COPY . .
-
-ENV PATH="/app/.venv/bin:$PATH"
 
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
@@ -48,7 +56,14 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 # --frozen: install exactly uv.lock, fail if it's out of date with pyproject.
 # --no-dev: no pytest, ruff or test-only drivers in the shipped image.
-RUN uv sync --frozen --no-dev --no-install-project
+RUN uv sync --frozen --no-dev --no-install-project --extra embed
+
+ENV PATH="/app/.venv/bin:$PATH"
+# Bake the embedding model into the image. The cache lives inside the
+# container, so without this every container start re-downloads ~130 MB and
+# a worker can stall mid-job fetching it. EMBEDDING_CACHE_DIR points the
+# runtime at the same path.
+RUN python -c "from fastembed import TextEmbedding; TextEmbedding(model_name='BAAI/bge-small-en-v1.5', cache_dir='/opt/models')"
 
 # ---------------------------------------------------------------------------
 FROM python:3.12-slim AS prod
@@ -66,12 +81,13 @@ RUN groupadd --system --gid 10001 app \
 
 WORKDIR /app
 COPY --from=prod-deps /app/.venv /app/.venv
+COPY --from=prod-deps /opt/models /opt/models
 COPY app ./app
 COPY migrations ./migrations
 COPY alembic.ini ./
 
 USER app
-ENV UPLOAD_DIR=/data/uploads
+ENV UPLOAD_DIR=/data/uploads EMBEDDING_CACHE_DIR=/opt/models
 
 EXPOSE 8000
 # The *liveness* endpoint: a dead process gets restarted. Readiness (which

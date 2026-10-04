@@ -14,14 +14,12 @@ exists. Two properties matter:
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import math
-import re
 from collections.abc import Callable
 from typing import TypeVar
 
 from pydantic import BaseModel, ValidationError
 
+from app.embedders.hashing import HashEmbedder
 from app.providers.base import LLMError, LLMProvider, LLMValidationError
 
 T = TypeVar("T", bound=BaseModel)
@@ -39,6 +37,9 @@ class FakeProvider:
     def __init__(self, *, canned: CannedMap | None = None, embed_dim: int = 64) -> None:
         self._canned: CannedMap = canned or {}
         self.embed_dim = embed_dim
+        # The hashing vectors now live in the embedder seam; delegating keeps
+        # one implementation rather than two that must stay bit-identical.
+        self._embedder = HashEmbedder(dim=embed_dim)
         # Recorded for test assertions and to mimic the metering ledger.
         self.completions: list[tuple[str, str]] = []
 
@@ -67,22 +68,11 @@ class FakeProvider:
             raise LLMValidationError(str(exc)) from exc
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
-        return [self._embed_one(t) for t in texts]
+        return await self._embedder.embed(texts)
 
     def _embed_one(self, text: str) -> list[float]:
-        """A deterministic, L2-normalized hashing bag-of-words vector.
-
-        Each token is hashed to a dimension, so texts that share words get a
-        positive cosine — a cheap, offline stand-in for semantic similarity.
-        This makes the deterministic evaluation pass meaningful in tests without
-        a real embedding model.
-        """
-        vals = [0.0] * self.embed_dim
-        for token in re.findall(r"[a-z0-9]+", text.lower()):
-            digest = hashlib.sha256(token.encode("utf-8")).digest()
-            vals[int.from_bytes(digest[:4], "big") % self.embed_dim] += 1.0
-        norm = math.sqrt(sum(v * v for v in vals)) or 1.0
-        return [v / norm for v in vals]
+        """Kept for tests that assert on a single vector directly."""
+        return self._embedder.embed_one(text)
 
 
 # A tiny structural check so a signature drift trips at import time in tests.

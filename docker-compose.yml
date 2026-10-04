@@ -1,6 +1,9 @@
 services:
   db:
-    image: postgres:16-alpine
+    # pgvector/pgvector ships the `vector` extension that RAG Phase 1 enables;
+    # stock postgres:16-alpine does not have it. Same PG 16 underneath, so the
+    # existing data volume is unaffected.
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}

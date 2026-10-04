@@ -42,7 +42,8 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16-alpine
+        # Must match compose: the chain now includes CREATE EXTENSION vector.
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_USER: interviewiq
           POSTGRES_PASSWORD: interviewiq
