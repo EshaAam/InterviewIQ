@@ -1,0 +1,14 @@
+{"id": "u-01", "query": "how do I configure a Kubernetes ingress controller with TLS termination"}
+{"id": "u-02", "query": "Kafka consumer group rebalancing and partition assignment"}
+{"id": "u-03", "query": "the Rust borrow checker is rejecting my mutable reference lifetime"}
+{"id": "u-04", "query": "Terraform remote state locking with DynamoDB"}
+{"id": "u-05", "query": "CSS grid versus flexbox for a responsive two column layout"}
+{"id": "u-06", "query": "SwiftUI state management with ObservableObject"}
+{"id": "u-07", "query": "why is my gradient descent diverging with a high learning rate"}
+{"id": "u-08", "query": "Elasticsearch shard allocation and replica count tuning"}
+{"id": "u-09", "query": "gRPC bidirectional streaming deadlines and backpressure"}
+{"id": "u-10", "query": "webpack tree shaking is not removing unused exports"}
+{"id": "u-11", "query": "Go goroutines leaking because nobody reads the channel"}
+{"id": "u-12", "query": "how do I write a Dockerfile multi stage build for a Rust binary"}
+{"id": "u-13", "query": "best practices for pruning a bonsai tree in winter"}
+{"id": "u-14", "query": "what temperature should I proof sourdough starter at"}

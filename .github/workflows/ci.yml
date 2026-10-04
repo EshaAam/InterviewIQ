@@ -3,6 +3,7 @@
 #
 #   backend     lint + the full test suite (SQLite, fake provider, no network)
 #   migrations  the migration chain against real Postgres — what SQLite can't check
+#   retrieval   hybrid search quality against a real pgvector database, with a floor
 #   frontend    lint, type-check, unit tests (Vitest), production build
 #   e2e         a real browser through a whole interview, against the
 #               production backend stack (docker-compose.prod.yml, fake AI)
@@ -72,6 +73,48 @@ jobs:
         run: uv run alembic downgrade base
       - name: And applies again from scratch
         run: uv run alembic upgrade head
+
+
+  retrieval:
+    # Hybrid search is Postgres-specific (pgvector + full text), so unlike the
+    # backend job this one needs a real database. It guards the numbers rather
+    # than just reporting them: a chunking or embedder change that quietly
+    # degrades recall fails here instead of surfacing as worse interviews.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: interviewiq
+          POSTGRES_PASSWORD: interviewiq
+          POSTGRES_DB: interviewiq
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U interviewiq"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      POSTGRES_HOST: localhost
+      LLM_PROVIDER: fake
+      EMBEDDING_PROVIDER: local
+      HF_HUB_DISABLE_SYMLINKS_WARNING: "1"
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.10.6"
+          enable-cache: true
+      - run: uv sync --frozen --extra embed
+      - run: uv run alembic upgrade head
+      - name: Build the knowledge base
+        run: uv run python -m app.cli ingest-kb
+      - name: Hybrid retrieval must clear the floor
+        # 0.90 against a measured 0.967 - enough headroom that an unrelated
+        # wording change does not fail the build, tight enough that a real
+        # regression does.
+        run: uv run python -m app.cli eval-retrieval --floor 0.90
 
   frontend:
     runs-on: ubuntu-latest

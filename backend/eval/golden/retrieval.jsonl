@@ -1,0 +1,60 @@
+{"id": "r-01", "query": "why doesn't using more threads make my number crunching faster in Python", "expect_topic": "python", "relevant": ["Python > The GIL"], "kind": "paraphrase"}
+{"id": "r-02", "query": "how do I process a huge file without loading all of it into memory", "expect_topic": "python", "relevant": ["Python > Generators and laziness"], "kind": "paraphrase"}
+{"id": "r-03", "query": "my function seems to remember values from the previous call", "expect_topic": "python", "relevant": ["Python > Mutable default arguments"], "kind": "paraphrase"}
+{"id": "r-04", "query": "make sure a resource is released even when the code raises", "expect_topic": "python", "relevant": ["Python > Context managers"], "kind": "paraphrase"}
+{"id": "r-05", "query": "functools.wraps", "expect_topic": "python", "relevant": ["Python > Decorators"], "kind": "exact-term"}
+{"id": "r-06", "query": "copy.deepcopy nested objects shared references", "expect_topic": "python", "relevant": ["Python > Shallow and deep copies"], "kind": "exact-term"}
+{"id": "r-07", "query": "small integer interning makes identity comparison surprising", "expect_topic": "python", "relevant": ["Python > Identity versus equality"], "kind": "mixed"}
+{"id": "r-08", "query": "asyncio.to_thread blocking call event loop", "expect_topic": "python", "relevant": ["Python > async and await"], "kind": "exact-term"}
+{"id": "r-09", "query": "easier to ask forgiveness than permission", "expect_topic": "python", "relevant": ["Python > Exceptions and the EAFP style"], "kind": "exact-term"}
+{"id": "r-10", "query": "TYPE_CHECKING imports and deferred annotations", "expect_topic": "python", "relevant": ["Python > Type hints"], "kind": "exact-term"}
+{"id": "r-11", "query": "one list query turned into hundreds of database round trips", "expect_topic": "sql", "relevant": ["SQL and PostgreSQL > The N+1 query problem"], "kind": "paraphrase"}
+{"id": "r-12", "query": "two transactions read the same row and one update was lost", "expect_topic": "sql", "relevant": ["SQL and PostgreSQL > SELECT ... FOR UPDATE"], "kind": "paraphrase"}
+{"id": "r-13", "query": "SELECT FOR UPDATE SKIP LOCKED", "expect_topic": "sql", "relevant": ["SQL and PostgreSQL > SELECT ... FOR UPDATE"], "kind": "exact-term"}
+{"id": "r-14", "query": "EXPLAIN ANALYZE estimated versus actual rows", "expect_topic": "sql", "relevant": ["SQL and PostgreSQL > Reading an EXPLAIN plan"], "kind": "exact-term"}
+{"id": "r-15", "query": "pool_pre_ping server closed the connection unexpectedly", "expect_topic": "sql", "relevant": ["SQL and PostgreSQL > Connection pooling"], "kind": "exact-term"}
+{"id": "r-16", "query": "my LEFT JOIN is silently dropping rows", "expect_topic": "sql", "relevant": ["SQL and PostgreSQL > INNER JOIN and LEFT JOIN"], "kind": "mixed"}
+{"id": "r-17", "query": "adding a NOT NULL column to a table that already has data", "expect_topic": "sql", "relevant": ["SQL and PostgreSQL > Migrations"], "kind": "mixed"}
+{"id": "r-18", "query": "should I use UUID or sequential integer primary keys", "expect_topic": "sql", "relevant": ["SQL and PostgreSQL > Keys and UUIDs"], "kind": "mixed"}
+{"id": "r-19", "query": "dirty read non-repeatable read phantom read", "expect_topic": "sql", "relevant": ["SQL and PostgreSQL > Transactions and isolation levels"], "kind": "exact-term"}
+{"id": "r-20", "query": "why would the planner ignore my index", "expect_topic": "sql", "relevant": ["SQL and PostgreSQL > Indexes: what they buy and what they cost"], "kind": "paraphrase"}
+{"id": "r-21", "query": "storing the same fact in several places causes update anomalies", "expect_topic": "sql", "relevant": ["SQL and PostgreSQL > Normalisation, and when to stop"], "kind": "paraphrase"}
+{"id": "r-22", "query": "setTimeout zero runs after a promise callback", "expect_topic": "javascript", "relevant": ["JavaScript > The event loop"], "kind": "exact-term"}
+{"id": "r-23", "query": "temporal dead zone", "expect_topic": "javascript", "relevant": ["JavaScript > var, let and const"], "kind": "exact-term"}
+{"id": "r-24", "query": "Promise.allSettled and Promise.race", "expect_topic": "javascript", "relevant": ["JavaScript > Promises"], "kind": "exact-term"}
+{"id": "r-25", "query": "an inner function that keeps private state after the outer one returns", "expect_topic": "javascript", "relevant": ["JavaScript > Closures"], "kind": "paraphrase"}
+{"id": "r-26", "query": "arrow function loses the instance when used as a method", "expect_topic": "javascript", "relevant": ["JavaScript > this"], "kind": "paraphrase"}
+{"id": "r-27", "query": "Object.is NaN comparison", "expect_topic": "javascript", "relevant": ["JavaScript > == versus ==="], "kind": "exact-term"}
+{"id": "r-28", "query": "wait until the user stops typing before firing a search request", "expect_topic": "javascript", "relevant": ["JavaScript > Debounce and throttle"], "kind": "paraphrase"}
+{"id": "r-29", "query": "one listener on a parent instead of one per row", "expect_topic": "javascript", "relevant": ["JavaScript > Event delegation"], "kind": "paraphrase"}
+{"id": "r-30", "query": "useMemo stabilises a reference so a child stops re-rendering", "expect_topic": "javascript", "relevant": ["JavaScript > Shallow equality and React rendering"], "kind": "exact-term"}
+{"id": "r-31", "query": "objects delegate to a prototype and lookup walks the chain", "expect_topic": "javascript", "relevant": ["JavaScript > Prototypal inheritance"], "kind": "mixed"}
+{"id": "r-32", "query": "how do I stop a retried request creating a duplicate row", "expect_topic": "http", "relevant": ["HTTP and REST > Idempotency"], "kind": "paraphrase"}
+{"id": "r-33", "query": "httpOnly SameSite CSRF versus XSS", "expect_topic": "http", "relevant": ["HTTP and REST > Cookies versus bearer tokens"], "kind": "exact-term"}
+{"id": "r-34", "query": "ETag If-None-Match 304", "expect_topic": "http", "relevant": ["HTTP and REST > Caching"], "kind": "exact-term"}
+{"id": "r-35", "query": "the browser blocks my API call from another origin", "expect_topic": "http", "relevant": ["HTTP and REST > CORS"], "kind": "paraphrase"}
+{"id": "r-36", "query": "when should a client retry a failed request", "expect_topic": "http", "relevant": ["HTTP and REST > Status code families"], "kind": "paraphrase"}
+{"id": "r-37", "query": "difference between replacing a resource and updating some fields", "expect_topic": "http", "relevant": ["HTTP and REST > PUT versus PATCH"], "kind": "paraphrase"}
+{"id": "r-38", "query": "head-of-line blocking multiplexing QUIC", "expect_topic": "http", "relevant": ["HTTP and REST > HTTP/2 and HTTP/3"], "kind": "exact-term"}
+{"id": "r-39", "query": "does stateless mean the server cannot use a database", "expect_topic": "http", "relevant": ["HTTP and REST > REST and statelessness"], "kind": "mixed"}
+{"id": "r-40", "query": "the request takes thirty seconds and the client times out", "expect_topic": "system-design", "relevant": ["System design > Queues and asynchronous work"], "kind": "paraphrase"}
+{"id": "r-41", "query": "acks_late at-least-once redelivery", "expect_topic": "system-design", "relevant": ["System design > Delivery guarantees and idempotency"], "kind": "exact-term"}
+{"id": "r-42", "query": "thundering herd jitter exponential backoff", "expect_topic": "system-design", "relevant": ["System design > Retries and backoff"], "kind": "exact-term"}
+{"id": "r-43", "query": "token bucket versus fixed window", "expect_topic": "system-design", "relevant": ["System design > Rate limiting"], "kind": "exact-term"}
+{"id": "r-44", "query": "PACELC", "expect_topic": "system-design", "relevant": ["System design > CAP"], "kind": "exact-term"}
+{"id": "r-45", "query": "a user writes then immediately reads and their change is missing", "expect_topic": "system-design", "relevant": ["System design > Read replicas"], "kind": "paraphrase"}
+{"id": "r-46", "query": "stop hammering a dependency that is already down", "expect_topic": "system-design", "relevant": ["System design > Circuit breakers"], "kind": "paraphrase"}
+{"id": "r-47", "query": "a popular cache key expires and everything recomputes at once", "expect_topic": "system-design", "relevant": ["System design > Caching"], "kind": "paraphrase"}
+{"id": "r-48", "query": "alert on p99 latency rather than averages", "expect_topic": "system-design", "relevant": ["System design > Observability"], "kind": "mixed"}
+{"id": "r-49", "query": "in-memory session data breaks when you add a second instance", "expect_topic": "system-design", "relevant": ["System design > Horizontal and vertical scaling"], "kind": "paraphrase"}
+{"id": "r-50", "query": "Depends resolves the tree and caches per request", "expect_topic": "fastapi", "relevant": ["FastAPI > Dependency injection"], "kind": "exact-term"}
+{"id": "r-51", "query": "response_model strips fields the schema does not declare", "expect_topic": "fastapi", "relevant": ["FastAPI > Response models"], "kind": "exact-term"}
+{"id": "r-52", "query": "a blocking database driver inside async def slows unrelated endpoints", "expect_topic": "fastapi", "relevant": ["FastAPI > Path operation functions: async def or def"], "kind": "mixed"}
+{"id": "r-53", "query": "BackgroundTasks loses work when the process restarts", "expect_topic": "fastapi", "relevant": ["FastAPI > Background tasks versus a task queue"], "kind": "exact-term"}
+{"id": "r-54", "query": "setup before the handler and teardown afterwards in one dependency", "expect_topic": "fastapi", "relevant": ["FastAPI > Dependencies with yield"], "kind": "paraphrase"}
+{"id": "r-55", "query": "gate every route in a file behind a role without touching each one", "expect_topic": "fastapi", "relevant": ["FastAPI > Routers and prefixes", "FastAPI > Dependencies that take parameters"], "kind": "paraphrase"}
+{"id": "r-56", "query": "a malformed body returns 422 before my handler runs", "expect_topic": "fastapi", "relevant": ["FastAPI > Validation happens before the handler"], "kind": "mixed"}
+{"id": "r-57", "query": "dependency_overrides swapping a real dependency in tests", "expect_topic": "fastapi", "relevant": ["FastAPI > The application factory"], "kind": "exact-term"}
+{"id": "r-58", "query": "where do I put CORS and request logging", "expect_topic": "fastapi", "relevant": ["FastAPI > Middleware"], "kind": "paraphrase"}
+{"id": "r-59", "query": "which status code means the work was queued not finished", "expect_topic": "fastapi", "relevant": ["FastAPI > Status codes", "HTTP and REST > Status code families"], "kind": "mixed"}
+{"id": "r-60", "query": "how do I hand slow work to a worker and return straight away", "expect_topic": "system-design", "relevant": ["System design > Queues and asynchronous work", "FastAPI > Background tasks versus a task queue"], "kind": "paraphrase"}

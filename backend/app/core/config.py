@@ -91,6 +91,36 @@ class Settings(BaseSettings):
     LLM_BREAKER_THRESHOLD: int = 5  # consecutive transient failures -> open
     LLM_BREAKER_RESET_SECONDS: float = 30.0
 
+    # --- RAG retrieval (Phase 3) and grounded generation (Phase 4) ---
+    # Off by default: the whole point of the flag is that the previous,
+    # ungrounded behaviour stays one switch away for before/after comparison.
+    RAG_ENABLED: bool = False
+    # Passages handed to the prompt per extracted skill.
+    RAG_TOP_K: int = 4
+    # Candidates pulled from each retriever before fusion. Larger costs little
+    # (both are index lookups) and gives RRF more to work with.
+    RAG_CANDIDATES: int = 20
+    # Below this cosine a skill counts as *not covered* and the question falls
+    # back to ungrounded. Calibrated on the retrieval golden set plus 14
+    # deliberately uncovered queries (Kubernetes, Kafka, sourdough), not guessed:
+    #
+    #   floor   keeps a good retrieval   grounds an uncovered query
+    #   0.55            58/58                     11/14
+    #   0.65            53/58                      4/14
+    #   0.68            48/58                      0/14
+    #
+    # 0.68 because the errors are not symmetric. Discarding a good retrieval
+    # costs one grounding opportunity and falls back to the pre-RAG behaviour.
+    # Admitting an uncovered one builds an answer key from unrelated passages
+    # and attaches a citation that actively misleads a reviewer - the exact
+    # failure this whole effort exists to prevent. Re-run
+    # `python -m app.cli eval-retrieval` after any embedder or corpus change.
+    RAG_MIN_SIMILARITY: float = 0.68
+    # Hard cap on retrieved context per generation. Grounded prompts are longer
+    # and the free tier is rate-limited by tokens, so this is what stops a
+    # ten-skill resume turning into one enormous request.
+    RAG_CONTEXT_TOKEN_BUDGET: int = 2400
+
     # --- Cost & budget ---
     # Rough per-1K-token prices (USD); tune per model. Metered into LLMCall.
     LLM_PRICE_PROMPT_PER_1K: float = 0.000075

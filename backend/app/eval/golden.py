@@ -13,13 +13,17 @@ exists so they can be replaced.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
 #: Repo-relative default, resolved from this file so it works from any cwd.
-DEFAULT_GOLDEN_PATH = Path(__file__).resolve().parents[2] / "eval" / "golden" / "grading.jsonl"
+_GOLDEN_DIR = Path(__file__).resolve().parents[2] / "eval" / "golden"
+DEFAULT_GOLDEN_PATH = _GOLDEN_DIR / "grading.jsonl"
+DEFAULT_RETRIEVAL_PATH = _GOLDEN_DIR / "retrieval.jsonl"
+DEFAULT_UNCOVERED_PATH = _GOLDEN_DIR / "retrieval_uncovered.jsonl"
 
 LabelSource = Literal["ai-bootstrap", "human"]
 
@@ -74,3 +78,57 @@ def label_source(items: list[GoldenItem]) -> str:
     if human == 0:
         return "ai-bootstrap"
     return f"mixed ({human}/{len(items)} human)"
+
+
+class RetrievalItem(BaseModel):
+    """One (query -> the passages that should come back) pair.
+
+    `relevant` holds **heading paths**, not chunk ids. Chunk ids are UUIDs
+    minted at ingest time and change every time the corpus is rebuilt, so a
+    golden set keyed on them would rot on the next `ingest-kb`. A heading path
+    is derived from the content and survives re-chunking.
+    """
+
+    id: str
+    query: str
+    expect_topic: str
+    relevant: list[str] = Field(min_length=1)
+    #: Which retriever this query is meant to stress. `exact-term` queries are
+    #: where vector search alone is weak and keyword search carries it, and vice
+    #: versa for `paraphrase` - a set made only of paraphrases would make hybrid
+    #: look pointless by construction.
+    kind: Literal["paraphrase", "exact-term", "mixed"] = "mixed"
+
+
+def load_retrieval_golden(path: Path | None = None) -> list[RetrievalItem]:
+    target = path or DEFAULT_RETRIEVAL_PATH
+    if not target.exists():
+        raise FileNotFoundError(f"No retrieval golden set at {target}.")
+    items: list[RetrievalItem] = []
+    for line_no, raw in enumerate(target.read_text(encoding="utf-8").splitlines(), start=1):
+        line = raw.strip()
+        if not line or line.startswith("//"):
+            continue
+        try:
+            items.append(RetrievalItem.model_validate_json(line))
+        except Exception as exc:  # noqa: BLE001 - point at the line, then re-raise
+            raise ValueError(f"{target}:{line_no} is not a valid retrieval item: {exc}") from exc
+    return items
+
+
+def load_uncovered_queries(path: Path | None = None) -> list[str]:
+    """Queries the knowledge base deliberately does not cover.
+
+    Without negatives a relevance cut-off cannot be calibrated: every query in
+    the positive set has a right answer, so any floor that keeps them all looks
+    perfect while silently grounding Kubernetes questions in the SQL chapter.
+    """
+    target = path or DEFAULT_UNCOVERED_PATH
+    if not target.exists():
+        raise FileNotFoundError(f"No uncovered-query set at {target}.")
+    queries: list[str] = []
+    for raw in target.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if line and not line.startswith("//"):
+            queries.append(json.loads(line)["query"])
+    return queries

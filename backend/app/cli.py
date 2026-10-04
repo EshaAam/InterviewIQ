@@ -173,6 +173,59 @@ async def _ingest_kb(args: argparse.Namespace) -> None:
     print(report.table())
 
 
+async def _eval_retrieval(args: argparse.Namespace) -> None:
+    from app.core.config import settings
+    from app.db.session import async_session_factory
+    from app.embedders import get_embedder
+    from app.eval.golden import load_retrieval_golden, load_uncovered_queries
+    from app.eval.retrieval_eval import (
+        compare_modes,
+        comparison_table,
+        false_grounding_rate,
+    )
+
+    items = load_retrieval_golden()
+    uncovered = load_uncovered_queries()
+    embedder = get_embedder()
+    print(f"Retrieval over {len(items)} queries, k={args.k}, embedder={embedder.name}")
+    print()
+
+    async with async_session_factory() as db:
+        reports = await compare_modes(db, embedder, items, k=args.k)
+        wrongly_grounded, total_uncovered = await false_grounding_rate(
+            db, embedder, uncovered, k=args.k
+        )
+
+    print(comparison_table(reports))
+    print()
+    print(
+        f"  false grounding   {wrongly_grounded}/{total_uncovered} uncovered queries "
+        f"returned passages at RAG_MIN_SIMILARITY={settings.RAG_MIN_SIMILARITY}"
+    )
+
+    by_mode = {r.mode: r for r in reports}
+    hybrid, vector, keyword = by_mode["hybrid"], by_mode["vector"], by_mode["keyword"]
+    best_single = max(vector.recall_at_k, keyword.recall_at_k)
+    print()
+    print(
+        f"  hybrid recall@{args.k} {hybrid.recall_at_k:.3f} vs best single "
+        f"{best_single:.3f} ({hybrid.recall_at_k - best_single:+.3f})"
+    )
+    if hybrid.misses:
+        print()
+        print(f"  hybrid found nothing relevant for {len(hybrid.misses)}:")
+        for miss in hybrid.misses:
+            print(f"    {miss}")
+
+    # A floor turns this from a report into a guard: CI fails rather than
+    # letting a prompt or chunking change quietly degrade retrieval.
+    if args.floor and hybrid.recall_at_k < args.floor:
+        sys.exit(
+            f"\nFAIL: hybrid recall@{args.k} {hybrid.recall_at_k:.3f} is below "
+            f"the floor of {args.floor:.3f}."
+        )
+
+
 _KEY_TO_SCORE = {"0": 0.0, "1": 0.25, "2": 0.5, "3": 0.75, "4": 1.0}
 
 
@@ -269,6 +322,17 @@ def main() -> None:
     ingest.add_argument("--max-tokens", type=int, default=400, help="target chunk size")
     ingest.add_argument("--overlap-tokens", type=int, default=50, help="chunk overlap")
 
+    retrieval = commands.add_parser(
+        "eval-retrieval", help="compare vector / keyword / hybrid on the golden set"
+    )
+    retrieval.add_argument("--k", type=int, default=5, help="how many passages to score")
+    retrieval.add_argument(
+        "--floor",
+        type=float,
+        default=0.0,
+        help="exit non-zero if hybrid recall@k falls below this (for CI)",
+    )
+
     label = commands.add_parser("label-grading", help="hand-label the golden set")
     label.add_argument(
         "--all", action="store_true", help="revisit items that already have a human label"
@@ -285,6 +349,8 @@ def main() -> None:
             asyncio.run(_recalibrate(args))
         case "ingest-kb":
             asyncio.run(_ingest_kb(args))
+        case "eval-retrieval":
+            asyncio.run(_eval_retrieval(args))
         case "label-grading":
             _label_grading(args)
 
