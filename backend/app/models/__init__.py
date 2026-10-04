@@ -9,6 +9,7 @@ from app.db.base import Base
 from app.models.answer import Answer
 from app.models.evaluation import Evaluation
 from app.models.extracted_skill import ExtractedSkill
+from app.models.knowledge import KB_EMBEDDING_DIM, KBChunk, KBDocument
 from app.models.llm_call import LLMCall
 from app.models.question import Question
 from app.models.report import Report
@@ -30,4 +31,7 @@ __all__ = [
     "Evaluation",
     "Report",
     "LLMCall",
+    "KBDocument",
+    "KBChunk",
+    "KB_EMBEDDING_DIM",
 ]

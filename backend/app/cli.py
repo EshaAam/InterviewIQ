@@ -4,6 +4,7 @@
     python -m app.cli promote bob@company.com
     python -m app.cli eval-grading --runs 3
     python -m app.cli recalibrate
+    python -m app.cli ingest-kb
     python -m app.cli label-grading
 
 In Docker: `docker compose exec api python -m app.cli create-recruiter ...`.
@@ -145,6 +146,33 @@ async def _recalibrate(args: argparse.Namespace) -> None:
         print("The current setting is already the best of the candidates.")
 
 
+async def _ingest_kb(args: argparse.Namespace) -> None:
+    from pathlib import Path
+
+    from app.db.session import async_session_factory
+    from app.embedders import get_embedder
+    from app.services.kb_ingest import MixedEmbeddingModels, ingest_kb
+
+    embedder = get_embedder()
+    async with async_session_factory() as db:
+        try:
+            report = await ingest_kb(
+                db,
+                embedder,
+                kb_dir=Path(args.kb_dir) if args.kb_dir else None,
+                force=args.force,
+                max_tokens=args.max_tokens,
+                overlap_tokens=args.overlap_tokens,
+            )
+        except MixedEmbeddingModels as exc:
+            sys.exit(f"Refused: {exc}")
+        # Commit once, at the end: a half-ingested knowledge base is worse than
+        # an unchanged one, because retrieval would silently cover half a topic.
+        await db.commit()
+
+    print(report.table())
+
+
 _KEY_TO_SCORE = {"0": 0.0, "1": 0.25, "2": 0.5, "3": 0.75, "4": 1.0}
 
 
@@ -229,6 +257,18 @@ def main() -> None:
     recal.add_argument("--max", type=float, default=0.90)
     recal.add_argument("--step", type=float, default=0.05)
 
+    ingest = commands.add_parser(
+        "ingest-kb", help="build the knowledge base from backend/kb/"
+    )
+    ingest.add_argument(
+        "--force",
+        action="store_true",
+        help="re-chunk and re-embed everything, including unchanged files",
+    )
+    ingest.add_argument("--kb-dir", default=None, help="override the source directory")
+    ingest.add_argument("--max-tokens", type=int, default=400, help="target chunk size")
+    ingest.add_argument("--overlap-tokens", type=int, default=50, help="chunk overlap")
+
     label = commands.add_parser("label-grading", help="hand-label the golden set")
     label.add_argument(
         "--all", action="store_true", help="revisit items that already have a human label"
@@ -243,6 +283,8 @@ def main() -> None:
             asyncio.run(_eval_grading(args))
         case "recalibrate":
             asyncio.run(_recalibrate(args))
+        case "ingest-kb":
+            asyncio.run(_ingest_kb(args))
         case "label-grading":
             _label_grading(args)
 
