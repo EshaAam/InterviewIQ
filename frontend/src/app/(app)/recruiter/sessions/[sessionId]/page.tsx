@@ -157,6 +157,31 @@ export default function RecruiterSessionDetailPage({
           </Card>
         )}
 
+        {detail.jd_gaps.length > 0 && (
+          /* What the questions were aimed at. Shown as stored at generation
+             time, not recomputed, so this stays an accurate record of what
+             this interview actually targeted. */
+          <Card as="section" aria-labelledby="jd-gaps" className="flex flex-col gap-3 p-6">
+            <h2 id="jd-gaps" className="text-lg font-semibold">
+              Targeted from the job description
+            </h2>
+            <p className="text-[13px] text-ink-3">
+              Requirements the resume did not evidence. Questions were weighted towards
+              these rather than towards skills already on the page.
+            </p>
+            <ul className="flex flex-col gap-2">
+              {detail.jd_gaps.map((gap) => (
+                <li key={gap} className="flex items-baseline gap-2 text-[14px]">
+                  <span aria-hidden="true" className="text-warn">
+                    &bull;
+                  </span>
+                  <span className="text-ink-2">{gap}</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+
         <Stagger className="flex flex-col gap-4">
           {detail.questions.map((question) => (
             <StaggerItem key={question.id}>

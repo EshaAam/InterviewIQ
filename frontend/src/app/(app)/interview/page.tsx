@@ -297,6 +297,8 @@ function NewInterview() {
   const [resume, setResume] = useState<Resume | null>(null);
   // What the resume came from, for the "Skills we found" header.
   const [origin, setOrigin] = useState<string>("pasted text");
+  // Optional. Empty means "interview me on what my résumé claims".
+  const [jobDescription, setJobDescription] = useState("");
   // The resume being parsed. Kept across a timeout so "keep waiting" watches
   // the same row instead of uploading (and paying for) the text again.
   const [pendingResumeId, setPendingResumeId] = useState<string | null>(null);
@@ -388,7 +390,7 @@ function NewInterview() {
     setError(null);
     setStage("creating");
     try {
-      const session = await createSession(resume.id);
+      const session = await createSession(resume.id, jobDescription);
       router.push(`/interview/${session.id}`);
     } catch (err) {
       setError(describeError(err, "Could not create the interview"));
@@ -538,6 +540,29 @@ function NewInterview() {
                   follow these topics.
                 </p>
               </div>
+
+              {/* Optional. With a job description the interview probes what the
+                  résumé does *not* evidence — asking about what is already on
+                  the page largely wastes the questions. */}
+              <details className="flex flex-col gap-2 border-t border-line-soft pt-4">
+                <summary className="cursor-pointer list-none font-semibold text-ink marker:content-none">
+                  Interviewing for a specific role?{" "}
+                  <span className="font-normal text-ink-3">(optional)</span>
+                </summary>
+                <p className="mt-2 text-[13px] text-ink-3">
+                  Paste the job description and we will focus on the requirements your
+                  resume does not already cover.
+                </p>
+                <textarea
+                  value={jobDescription}
+                  onChange={(event) => setJobDescription(event.target.value)}
+                  rows={6}
+                  maxLength={20000}
+                  placeholder={`- Build async Python services on PostgreSQL
+- Operate Kubernetes clusters`}
+                  className="mt-2 w-full resize-y rounded-[12px] border border-line-soft bg-field px-3.5 py-3 text-[14px] leading-relaxed text-ink outline-none placeholder:text-ink-3 focus:border-accent"
+                />
+              </details>
 
               <div className="flex flex-col gap-2">
                 <Button size="lg" onClick={generate} loading={stage === "creating"}>

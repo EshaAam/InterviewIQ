@@ -199,6 +199,9 @@ export type RecruiterSessionDetail = {
   created_at: string;
   expires_at: string | null;
   failure_reason: string | null;
+  job_description: string | null;
+  /** Requirements the résumé did not evidence, as computed at generation time. */
+  jd_gaps: string[];
   questions: QuestionDetail[];
   report: Report | null;
   integrity_flag: boolean;
@@ -383,11 +386,23 @@ export function getResume(resumeId: string): Promise<Resume> {
 
 // --- Sessions ---
 
-/** 202 — question generation is dispatched; poll until the state is READY. */
-export function createSession(resumeId: string): Promise<Session> {
+/**
+ * 202 — question generation is dispatched; poll until the state is READY.
+ *
+ * An optional job description shifts what the interview is for: generation
+ * targets the requirements the résumé does not evidence, rather than the skills
+ * it already does.
+ */
+export function createSession(
+  resumeId: string,
+  jobDescription?: string,
+): Promise<Session> {
   return apiFetch<Session>("/sessions", {
     method: "POST",
-    body: JSON.stringify({ resume_id: resumeId }),
+    body: JSON.stringify({
+      resume_id: resumeId,
+      job_description: jobDescription?.trim() || null,
+    }),
   });
 }
 
