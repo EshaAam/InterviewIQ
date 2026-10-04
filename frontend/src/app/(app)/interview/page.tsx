@@ -321,11 +321,20 @@ function NewInterview() {
         // Settled, not succeeded: polling for "parsed" alone would spin for
         // minutes on a failure the server knew about in 200 ms.
         (r) => r.parse_status === "parsed" || r.parse_status === "failed",
-        { signal: controller.signal },
+        // Long enough to outlast the worker's retry schedule (30+60+120+240s),
+        // so the server's verdict — and its reason — actually reaches the user
+        // instead of the generic "taking a while" notice winning the race.
+        { signal: controller.signal, timeoutMs: 8 * 60_000 },
       );
       setPendingResumeId(null);
       if (parsed.parse_status === "failed") {
-        setError("We could not read that resume. Try pasting the plain text again.");
+        // Prefer the server's reason. It knows whether the cause clears in
+        // minutes or in hours, and telling someone to retype their resume when
+        // the real problem is a provider quota wastes their time.
+        setError(
+          parsed.failure_reason ??
+            "We could not read that resume. Try pasting the plain text again.",
+        );
         setStage("compose");
         return;
       }
@@ -510,8 +519,13 @@ function NewInterview() {
                 </Button>
               }
             >
-              This is taking longer than usual. The server is still working on it — nothing has
-              been lost.
+              {/* The old copy said the server was "still working on it", which
+                  reads as "refresh in a moment". The common cause is the AI
+                  provider rate-limiting us, and that can take hours to clear —
+                  so say what is actually happening and offer a way to leave. */}
+              This can take several minutes when the AI provider is busy or has rate-limited
+              us. Your upload is saved either way — keep waiting, or come back to it from{" "}
+              <span className="font-medium text-ink">My interviews</span> later.
             </Notice>
           )}
 

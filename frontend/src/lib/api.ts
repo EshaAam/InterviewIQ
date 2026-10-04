@@ -46,7 +46,18 @@ export type SessionState =
 export type ParseStatus = "pending" | "parsing" | "parsed" | "failed";
 
 export type Skill = { name: string; confidence: number; evidence_span: string };
-export type Resume = { id: string; parse_status: ParseStatus; skills: Skill[] };
+export type Resume = {
+  id: string;
+  parse_status: ParseStatus;
+  /**
+   * Why parsing failed, in words the candidate can act on. Present only when
+   * `parse_status` is `failed`. The server distinguishes causes that clear in
+   * minutes from ones that take hours, which is the difference between
+   * "try again" and "come back later".
+   */
+  failure_reason: string | null;
+  skills: Skill[];
+};
 
 export type Session = {
   id: string;
