@@ -31,6 +31,11 @@ class GeneratedQuestion(BaseModel):
     topic: str
     expected_concepts: list[str] = Field(min_length=1)
     reference_answer: str = ""
+    #: Source labels ("S1", "S3") the question was built from, when generation
+    #: was grounded. Defaults to empty so every existing canned fake response
+    #: and every ungrounded run stays valid without modification — the field is
+    #: additive, not a new requirement.
+    source_chunk_ids: list[str] = Field(default_factory=list)
 
 
 class QuestionGenerationResult(BaseModel):

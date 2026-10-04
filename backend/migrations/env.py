@@ -20,6 +20,22 @@ from app.core.config import settings
 import app.models  # noqa: F401
 from app.db.base import Base
 
+
+# Indexes created with raw SQL because SQLAlchemy cannot express them portably:
+# a GIN index over the expression `to_tsvector('english', text)`, and an HNSW
+# index using pgvector's `vector_cosine_ops` operator class. Autogenerate cannot
+# reflect either back into a model definition, so on every run it proposes
+# dropping them — which would make `alembic check` permanently red and, worse,
+# train everyone to ignore it. Excluding them by name keeps the check meaningful
+# for the schema it *can* manage. Their lifecycle lives in migration
+# d41a8f6b2c57 instead.
+UNMANAGED_INDEXES = {"ix_kb_chunks_fts", "ix_kb_chunks_embedding_hnsw"}
+
+
+def include_object(obj, name, type_, reflected, compare_to) -> bool:
+    return not (type_ == "index" and name in UNMANAGED_INDEXES)
+
+
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL_ASYNC)
 
@@ -35,6 +51,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         compare_type=True,
+        include_object=include_object,
         dialect_opts={"paramstyle": "named"},
     )
     with context.begin_transaction():
@@ -46,6 +63,7 @@ def _do_run_migrations(connection) -> None:
         connection=connection,
         target_metadata=target_metadata,
         compare_type=True,
+        include_object=include_object,
     )
     with context.begin_transaction():
         context.run_migrations()

@@ -16,6 +16,7 @@ from typing import Protocol
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.embedders import Embedder, get_embedder
 from app.models import LLMCall
 from app.providers import LLMProvider
 from app.services import ledger, pipeline
@@ -60,9 +61,17 @@ class InlineDispatcher:
     give-up path instead of being retried later.
     """
 
-    def __init__(self, db: AsyncSession, provider: LLMProvider) -> None:
+    def __init__(
+        self,
+        db: AsyncSession,
+        provider: LLMProvider,
+        embedder: Embedder | None = None,
+    ) -> None:
         self.db = db
         self.provider = provider
+        # Injectable so a grounded-generation test can supply an embedder
+        # whose width matches the knowledge base it ingested.
+        self.embedder = embedder or get_embedder()
 
     async def _attempt(
         self,
@@ -91,7 +100,9 @@ class InlineDispatcher:
 
     async def generate_questions(self, session_id: uuid.UUID) -> None:
         await self._attempt(
-            lambda: pipeline.generate_questions(self.db, self.provider, session_id),
+            lambda: pipeline.generate_questions(
+                self.db, self.provider, session_id, embedder=self.embedder
+            ),
             lambda exc: pipeline.give_up_session(
                 self.db, session_id, f"Question generation did not complete: {exc}"
             ),
@@ -102,7 +113,10 @@ class InlineDispatcher:
             return None
 
         await self._attempt(
-            lambda: pipeline.evaluate_answer(self.db, self.provider, answer_id), _nothing
+            lambda: pipeline.evaluate_answer(
+                self.db, self.provider, answer_id, embedder=self.embedder
+            ),
+            _nothing,
         )
 
     async def build_report(self, session_id: uuid.UUID) -> None:

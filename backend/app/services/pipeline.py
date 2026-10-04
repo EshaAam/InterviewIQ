@@ -53,9 +53,11 @@ from app.schemas.pipeline import (
 )
 from app.services import ledger
 from app.services.grading import grade
+from app.services.grounding import GroundedContext, build_context
+from app.services.grounding import build_prompt as build_grounded_prompt
 from app.services.session_service import SessionService, can_transition
 
-PROMPT_VERSION = "p2-fake-v1"
+PROMPT_VERSION = "p4-rag-v1"
 
 # Worth trying again later; everything else is a real answer.
 RETRYABLE: tuple[type[Exception], ...] = (LLMTransientError, LLMCircuitOpen)
@@ -206,7 +208,11 @@ async def parse_resume(
 # --- stage 2: generate questions ---
 
 async def generate_questions(
-    db: AsyncSession, provider: LLMProvider, session_id: uuid.UUID
+    db: AsyncSession,
+    provider: LLMProvider,
+    session_id: uuid.UUID,
+    *,
+    embedder: Embedder | None = None,
 ) -> InterviewSession:
     session = await db.get(InterviewSession, session_id)
     if session is None:
@@ -241,7 +247,26 @@ async def generate_questions(
         session.model_name = provider.name
         await db.flush()
 
-        prompt = f"Generate interview questions for a candidate with:\n{resume_text}"
+        # --- Grounding: retrieve source material for the extracted skills. ---
+        # An empty context (RAG off, no skills, or nothing in the corpus clears
+        # the relevance floor) falls through to the original prompt. Generation
+        # must never fail just because the knowledge base is incomplete.
+        context = GroundedContext()
+        if settings.RAG_ENABLED and session.resume_id is not None:
+            skills = list(
+                await db.scalars(
+                    select(ExtractedSkill).where(
+                        ExtractedSkill.resume_id == session.resume_id
+                    )
+                )
+            )
+            context = await build_context(db, embedder or get_embedder(), skills)
+
+        if context.is_empty:
+            prompt = f"Generate interview questions for a candidate with:\n{resume_text}"
+        else:
+            prompt = build_grounded_prompt(resume_text, context)
+
         result: QuestionGenerationResult = await _complete_metered(
             db, provider, prompt, QuestionGenerationResult,
             session_id=session_id, user_id=session.user_id,
@@ -250,6 +275,9 @@ async def generate_questions(
         # Rebuild questions so a retry doesn't collide on (session, ordinal).
         await db.execute(delete(Question).where(Question.session_id == session_id))
         for ordinal, q in enumerate(result.questions):
+            # Raises LLMValidationError on an invented label, which routes
+            # through the repair attempt and then the dead-letter path below.
+            cited = context.chunk_ids_for(q.source_chunk_ids) if not context.is_empty else []
             db.add(
                 Question(
                     session_id=session_id,
@@ -260,6 +288,8 @@ async def generate_questions(
                     expected_concepts=q.expected_concepts,
                     reference_answer=q.reference_answer,
                     prompt_version=PROMPT_VERSION,
+                    source_chunk_ids=cited,
+                    grounded=bool(cited),
                 )
             )
 

@@ -48,6 +48,11 @@ def _fake_skills(prompt: str) -> SkillExtractionResult:
 def _fake_questions(prompt: str) -> QuestionGenerationResult:
     text = prompt.lower()
     topics = [s for s in _KNOWN_SKILLS if s in text][:3] or ["python", "sql"]
+    # When the prompt carries a sources block, cite from it — a real model would,
+    # and without this the fake could never exercise the grounded path at all.
+    # Deliberately *valid* labels only; a test that wants the invented-citation
+    # dead-letter registers its own canned response for that.
+    labels = _source_labels(prompt)
     questions = [
         GeneratedQuestion(
             text=f"Explain how you would use {topic} in a production system.",
@@ -60,10 +65,21 @@ def _fake_questions(prompt: str) -> QuestionGenerationResult:
             ],
             reference_answer=f"A strong answer covers {topic} fundamentals, its "
             f"tradeoffs, and concrete production usage.",
+            # One label per question, rotating, so different questions carry
+            # different citations the way grounded output actually looks.
+            source_chunk_ids=[labels[index % len(labels)]] if labels else [],
         )
-        for topic in topics
+        for index, topic in enumerate(topics)
     ]
     return QuestionGenerationResult(questions=questions)
+
+
+def _source_labels(prompt: str) -> list[str]:
+    """Labels the grounded prompt offered, in order, de-duplicated."""
+    seen: dict[str, None] = {}
+    for label in re.findall(r"^\[(S\d+)\]", prompt, flags=re.MULTILINE):
+        seen.setdefault(label, None)
+    return list(seen)
 
 
 def _fake_evaluation(prompt: str) -> AnswerEvaluationResult:
