@@ -13,6 +13,7 @@ import { ArrowUpRight, CircleCheck, PartyPopper } from "lucide-react";
 import { OverrideDialog } from "@/components/override-dialog";
 import { EASE } from "@/components/motion";
 import {
+  CitedSources,
   Button,
   Card,
   Chip,
@@ -229,6 +230,11 @@ function ExpandedReview({
       <div className="rounded-[14px] border border-line-soft bg-field px-4 py-3.5 text-[15px] leading-relaxed whitespace-pre-wrap">
         {item.answer_text}
       </div>
+
+      {/* The reviewer judges against the same passages the grader was given.
+          Without them this screen asks a human to second-guess a decision
+          while withholding the evidence it was made from. */}
+      <CitedSources sources={item.sources} grounded={item.grounded} />
 
       <div className="flex flex-wrap gap-3">
         <ScoreBox

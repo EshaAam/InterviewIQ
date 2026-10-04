@@ -28,6 +28,7 @@ from app.models.session import SessionState
 from app.models.user import UserRole
 from app.schemas.interview import (
     AnswerDetail,
+    CitedSourceRead,
     CostSummary,
     EvaluationDetail,
     EvaluationReviewPage,
@@ -41,6 +42,7 @@ from app.schemas.interview import (
     RecruiterSessionRead,
 )
 from app.services.budget import utc_day_start
+from app.services.citations import load_citations
 from app.services.integrity import assess, flagged_sessions
 from app.services.pipeline import rebuild_report
 from app.services.reports import pdf_response, render_session_pdf, to_report_read
@@ -123,6 +125,7 @@ async def session_detail(session_id: uuid.UUID, db: DbSession) -> RecruiterSessi
         integrity_flag = integrity_flag or bool(detail.integrity)
         answers_by_question.setdefault(answer.question_id, []).append(detail)
 
+    citations = await load_citations(db, questions)
     report = await db.scalar(select(Report).where(Report.session_id == session_id))
     return RecruiterSessionDetail(
         id=session.id,
@@ -140,6 +143,10 @@ async def session_detail(session_id: uuid.UUID, db: DbSession) -> RecruiterSessi
                 difficulty=q.difficulty,
                 text=q.text,
                 expected_concepts=q.expected_concepts or [],
+                grounded=q.grounded,
+                sources=[
+                    CitedSourceRead.model_validate(c) for c in citations.get(q.id, [])
+                ],
                 answers=answers_by_question.get(q.id, []),
             )
             for q in questions
@@ -196,6 +203,9 @@ async def review_queue(
     result = await db.execute(
         base.order_by(Evaluation.created_at.desc()).limit(limit).offset(offset)
     )
+    rows = result.all()
+    # One lookup for the whole page, not one per row.
+    citations = await load_citations(db, [q for _, q, _, _ in rows])
     return EvaluationReviewPage(
         total=total or 0,
         items=[
@@ -212,8 +222,12 @@ async def review_queue(
                 confidence=ev.confidence,
                 needs_review=ev.needs_review,
                 run_count=ev.run_count,
+                grounded=q.grounded,
+                sources=[
+                    CitedSourceRead.model_validate(c) for c in citations.get(q.id, [])
+                ],
             )
-            for ev, q, a, email in result.all()
+            for ev, q, a, email in rows
         ],
     )
 

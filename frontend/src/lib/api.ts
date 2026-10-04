@@ -79,6 +79,32 @@ export type SessionSummary = Omit<Session, "created_at"> & {
   overall: number | null;
 };
 
+/**
+ * A knowledge-base passage a question was built from.
+ *
+ * `text` travels with it so a reviewer can check the grade against the same
+ * material the grader saw, without a second request — the point of showing a
+ * citation is that it can be checked, and a link nobody follows is not a check.
+ */
+export type CitedSource = {
+  chunk_id: string;
+  topic: string;
+  heading_path: string;
+  text: string;
+  document_title: string;
+  url: string;
+  /** Non-empty only where the source licence requires visible attribution. */
+  license: string;
+};
+
+/** A passage behind a concept the candidate missed. */
+export type StudyLink = {
+  topic: string;
+  heading_path: string;
+  document_title: string;
+  url: string;
+};
+
 export type Report = {
   id: string;
   overall: number;
@@ -87,6 +113,8 @@ export type Report = {
   gaps: string[];
   /** A recruiter overrode at least one score; the numbers include that. */
   human_reviewed: boolean;
+  /** Passages behind the weakest topics. Empty when the interview was ungrounded. */
+  study_links: StudyLink[];
 };
 
 export type RecruiterSession = {
@@ -112,6 +140,9 @@ export type EvaluationReview = {
   confidence: number;
   needs_review: boolean;
   run_count: number;
+  /** Whether the answer key came from cited passages or from model memory. */
+  grounded: boolean;
+  sources: CitedSource[];
 };
 
 /** A page of the review queue, plus how big the whole queue is. */
@@ -155,6 +186,8 @@ export type QuestionDetail = {
   difficulty: string;
   text: string;
   expected_concepts: string[];
+  grounded: boolean;
+  sources: CitedSource[];
   answers: AnswerDetail[];
 };
 

@@ -17,6 +17,7 @@ import { DownloadPdfButton } from "@/components/download-pdf-button";
 import { OverrideDialog } from "@/components/override-dialog";
 import { Stagger, StaggerItem } from "@/components/motion";
 import {
+  CitedSources,
   BackLink,
   Button,
   Card,
@@ -227,6 +228,10 @@ function QuestionCard({
           </span>
         ))}
       </div>
+
+      {/* Where the answer key came from. A recruiter defending a score needs to
+          be able to trace it to a source in one click. */}
+      <CitedSources sources={question.sources} grounded={question.grounded} />
 
       {question.answers.length === 0 && <p className="text-sm text-ink-3">Not answered.</p>}
       {question.answers.map((answer) => (

@@ -16,7 +16,7 @@ import {
   Info,
   Loader2,
 } from "lucide-react";
-import type { SessionState } from "@/lib/api";
+import type { SessionState, CitedSource } from "@/lib/api";
 import { toHundred } from "@/lib/format";
 import { BarFill, FadeIn, PulseDot } from "./motion";
 
@@ -522,5 +522,73 @@ export function IntegrityBadge() {
         Integrity: worth a look
       </Chip>
     </span>
+  );
+}
+
+/**
+ * The passages a question was grounded in.
+ *
+ * Collapsed by default and expandable: a reviewer scanning a queue does not
+ * want three paragraphs of reference material in the way, but the one who is
+ * actually deciding a score needs to read it. Showing only a heading would
+ * make the citation a claim rather than something checkable.
+ */
+export function CitedSources({
+  sources,
+  grounded,
+  className = "",
+}: {
+  sources: CitedSource[];
+  grounded: boolean;
+  className?: string;
+}) {
+  if (!grounded || sources.length === 0) {
+    // Said out loud rather than shown as an absence. An ungrounded question is
+    // a normal outcome — the knowledge base does not cover everything — but a
+    // reviewer should know the answer key came from the model, not a source.
+    return (
+      <p className={`text-xs text-ink-3 ${className}`}>
+        Not grounded — the answer key came from the model, not from a cited source.
+      </p>
+    );
+  }
+
+  return (
+    <div className={`flex flex-col gap-2 ${className}`}>
+      <span className="text-[11px] font-semibold tracking-[0.6px] text-ink-3 uppercase">
+        Grounded in
+      </span>
+      {sources.map((source) => (
+        <details
+          key={source.chunk_id}
+          className="rounded-[12px] border border-line-soft bg-field px-3.5 py-2.5"
+        >
+          <summary className="cursor-pointer list-none text-[13px] font-medium text-ink marker:content-none">
+            <span className="text-accent">{source.heading_path}</span>
+            {source.url && (
+              <a
+                href={source.url}
+                target="_blank"
+                rel="noreferrer"
+                className="ml-2 text-xs font-normal text-ink-3 hover:text-accent"
+                onClick={(event) => event.stopPropagation()}
+              >
+                source ↗
+              </a>
+            )}
+          </summary>
+          <p className="mt-2 text-[13px] leading-relaxed whitespace-pre-wrap text-ink-2">
+            {source.text}
+          </p>
+          {source.license && (
+            /* Shown because some licences require attribution wherever the
+               text appears; hand-written content leaves this empty. */
+            <p className="mt-2 text-[11px] text-ink-3">
+              {source.document_title} — {source.license}
+            </p>
+          )}
+        </details>
+      ))}
+    </div>
   );
 }

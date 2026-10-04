@@ -207,6 +207,38 @@ export default function ReportPage({
             {topics.map(([topic, score], i) => (
               <ScoreBar key={topic} topic={topic} score={score} delay={0.1 + i * 0.08} />
             ))}
+
+            {report.study_links.length > 0 && (
+              /* The same passages the weak questions were built from — so the
+                 report ends with somewhere to go, not just a number. Drawn
+                 from citations stored at generation time, which is why a
+                 re-opened old report still points at what it actually used. */
+              <div className="flex flex-col gap-2 border-t border-line-soft pt-5">
+                <span className="text-[11px] font-semibold tracking-[0.6px] text-ink-3 uppercase">
+                  Where to read up
+                </span>
+                {report.study_links.map((link) => (
+                  <div
+                    key={`${link.topic}-${link.heading_path}`}
+                    className="flex flex-wrap items-baseline gap-x-2 text-[13px]"
+                  >
+                    <span className="text-ink-3">{link.topic}</span>
+                    {link.url ? (
+                      <a
+                        href={link.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-medium text-accent hover:text-brand"
+                      >
+                        {link.heading_path} ↗
+                      </a>
+                    ) : (
+                      <span className="font-medium text-ink">{link.heading_path}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </Card>
 
           <div className="flex w-full flex-col gap-6 lg:w-[420px] lg:shrink-0">

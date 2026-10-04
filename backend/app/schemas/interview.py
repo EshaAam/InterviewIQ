@@ -102,6 +102,10 @@ class ReportRead(BaseModel):
     # True once a recruiter has overridden any score in this session — the
     # numbers above already include that human decision.
     human_reviewed: bool = False
+    # Passages behind the weakest topics, so a report doubles as a study plan.
+    # Drawn from citations already on the questions — never retrieved afresh,
+    # so a report shows what the interview actually used.
+    study_links: list[StudyLink] = Field(default_factory=list)
 
 
 # --- Recruiter / human-review queue ---
@@ -130,6 +134,11 @@ class EvaluationReviewRead(BaseModel):
     confidence: float
     needs_review: bool
     run_count: int
+    # The reviewer judges against the same passages the grader was given.
+    # Without them the screen asks a human to second-guess a decision while
+    # withholding the evidence it was made from.
+    grounded: bool = False
+    sources: list[CitedSourceRead] = Field(default_factory=list)
 
 
 class EvaluationReviewPage(BaseModel):
@@ -174,6 +183,34 @@ class AnswerDetail(BaseModel):
     integrity: list[IntegritySignalRead] = []
 
 
+class CitedSourceRead(BaseModel):
+    """A passage a question was grounded in.
+
+    `text` is included so a reviewer can judge against the same material the
+    grader saw without a second request — the point of showing a citation is
+    that it can be checked, and a link nobody follows is not a check.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+    chunk_id: uuid.UUID
+    topic: str
+    heading_path: str
+    text: str
+    document_title: str
+    url: str
+    #: Non-empty only where the source licence requires visible attribution.
+    license: str
+
+
+class StudyLink(BaseModel):
+    """A passage behind a concept the candidate missed."""
+
+    topic: str
+    heading_path: str
+    document_title: str
+    url: str
+
+
 class QuestionDetail(BaseModel):
     id: uuid.UUID
     ordinal: int
@@ -181,6 +218,11 @@ class QuestionDetail(BaseModel):
     difficulty: str
     text: str
     expected_concepts: list[str]
+    # Whether the answer key came from cited passages or from model memory.
+    # Shown explicitly rather than inferred from `sources` being empty, so an
+    # ungrounded question is labelled instead of just looking unremarkable.
+    grounded: bool = False
+    sources: list[CitedSourceRead] = Field(default_factory=list)
     # A list, not a single answer: the database allows more than one per
     # question, and a review screen should show what is stored, not hide it.
     answers: list[AnswerDetail]

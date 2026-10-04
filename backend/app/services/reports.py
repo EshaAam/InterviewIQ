@@ -11,7 +11,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Answer, Evaluation, InterviewSession, Question, Report
-from app.schemas.interview import ReportRead
+from app.schemas.interview import ReportRead, StudyLink
+from app.services.citations import load_citations
 from app.services.integrity import assess
 from app.services.report_pdf import IntegrityLine, ReportPdfData, render_report_pdf
 
@@ -31,10 +32,66 @@ async def was_human_reviewed(db: AsyncSession, session_id: uuid.UUID) -> bool:
     return hit is not None
 
 
+#: A topic at or below this counts as weak enough to suggest reading for.
+STUDY_LINK_THRESHOLD = 0.6
+#: Keep the list short. A report that links twenty passages is a reading list
+#: nobody opens; three or four is something a candidate might actually use.
+MAX_STUDY_LINKS = 4
+
+
 async def to_report_read(db: AsyncSession, report: Report) -> ReportRead:
     read = ReportRead.model_validate(report)
     read.human_reviewed = await was_human_reviewed(db, report.session_id)
+    read.study_links = await _study_links(db, report)
     return read
+
+
+async def _study_links(db: AsyncSession, report: Report) -> list[StudyLink]:
+    """Passages behind the topics the candidate scored worst on.
+
+    Built from citations already stored on the questions, never from a fresh
+    retrieval. A report should point at what the interview actually used — if
+    it retrieved now, a candidate re-opening an old report could be sent to
+    material their questions were never based on.
+    """
+    per_topic = report.per_topic or {}
+    weak = sorted(
+        (t for t, score in per_topic.items() if score <= STUDY_LINK_THRESHOLD),
+        key=lambda topic: per_topic.get(topic, 0.0),
+    )
+    if not weak:
+        return []
+
+    questions = list(
+        await db.scalars(
+            select(Question).where(
+                Question.session_id == report.session_id,
+                Question.topic.in_(weak),
+            )
+        )
+    )
+    citations = await load_citations(db, questions)
+
+    links: list[StudyLink] = []
+    seen: set[str] = set()
+    # Weakest topic first, so a truncated list still leads with what matters.
+    by_topic = {topic: index for index, topic in enumerate(weak)}
+    for question in sorted(questions, key=lambda q: by_topic.get(q.topic, 0)):
+        for source in citations.get(question.id, []):
+            if source.heading_path in seen:
+                continue
+            seen.add(source.heading_path)
+            links.append(
+                StudyLink(
+                    topic=question.topic,
+                    heading_path=source.heading_path,
+                    document_title=source.document_title,
+                    url=source.url,
+                )
+            )
+            if len(links) >= MAX_STUDY_LINKS:
+                return links
+    return links
 
 
 async def render_session_pdf(
