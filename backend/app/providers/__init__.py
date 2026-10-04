@@ -5,6 +5,7 @@ from app.providers.base import (
     LLMCircuitOpen,
     LLMError,
     LLMProvider,
+    LLMRateLimited,
     LLMTransientError,
     LLMValidationError,
 )
@@ -15,6 +16,7 @@ __all__ = [
     "LLMProvider",
     "LLMError",
     "LLMTransientError",
+    "LLMRateLimited",
     "LLMValidationError",
     "LLMCircuitOpen",
     "LLMBudgetExceeded",

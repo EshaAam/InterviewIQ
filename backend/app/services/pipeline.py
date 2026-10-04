@@ -46,7 +46,13 @@ from app.models import (
     SessionState,
 )
 from app.models.resume import ParseStatus
-from app.providers.base import LLMCircuitOpen, LLMError, LLMProvider, LLMTransientError
+from app.providers.base import (
+    LLMCircuitOpen,
+    LLMError,
+    LLMProvider,
+    LLMRateLimited,
+    LLMTransientError,
+)
 from app.providers.cache import served_from_cache
 from app.schemas.pipeline import (
     AnswerEvaluationResult,
@@ -203,6 +209,7 @@ async def parse_resume(
             )
         )
     resume.parse_status = ParseStatus.parsed
+    resume.failure_reason = None  # a retry succeeded; clear the old reason
     await db.flush()
     return resume
 
@@ -569,11 +576,48 @@ async def rebuild_report(db: AsyncSession, session_id: uuid.UUID) -> Report | No
 
 # --- when retries run out ---
 
-async def give_up_resume(db: AsyncSession, resume_id: uuid.UUID) -> None:
-    """Retries exhausted on a parse: say so, rather than leave `pending`."""
+def describe_failure(stage: str, exc: Exception) -> str:
+    """Why a stage gave up, in words the person waiting can act on.
+
+    The distinction that matters is *retry now* versus *come back later*. A
+    rate limit or an exhausted daily quota will not clear in the next minute,
+    so telling someone the server is "still working on it" sends them to refresh
+    a page for hours. The raw provider message is not shown: it carries model
+    names, quota identifiers and sometimes key hints, none of which belong in
+    front of a candidate.
+    """
+    if isinstance(exc, LLMRateLimited):
+        return (
+            f"{stage} could not run: the AI provider's request limit has been "
+            f"reached. This usually clears within a few hours — your upload is "
+            f"saved, so try again later."
+        )
+    if isinstance(exc, LLMCircuitOpen):
+        return (
+            f"{stage} could not run: the AI provider is not responding right "
+            f"now. Nothing has been lost — try again in a few minutes."
+        )
+    if isinstance(exc, LLMTransientError):
+        return (
+            f"{stage} did not finish after {settings.TASK_MAX_RETRIES + 1} "
+            f"attempts because the AI provider kept failing. Try again shortly."
+        )
+    return f"{stage} could not be completed. Try again, or upload the file afresh."
+
+
+async def give_up_resume(
+    db: AsyncSession, resume_id: uuid.UUID, exc: Exception | None = None
+) -> None:
+    """Retries exhausted on a parse: say so, and say *why*.
+
+    Leaving it `pending` makes the UI spin forever; marking it `failed` without
+    a reason makes it spin and then shrug. The reason is what turns this into
+    something the person can act on.
+    """
     resume = await db.get(Resume, resume_id)
     if resume is not None and resume.parse_status != ParseStatus.parsed:
         resume.parse_status = ParseStatus.failed
+        resume.failure_reason = describe_failure("Reading your resume", exc) if exc else None
         await db.flush()
 
 

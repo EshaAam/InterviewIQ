@@ -126,5 +126,6 @@ async def get_resume(
     return ResumeRead(
         id=resume.id,
         parse_status=resume.parse_status,
+        failure_reason=resume.failure_reason,
         skills=[SkillRead.model_validate(s) for s in skills],
     )

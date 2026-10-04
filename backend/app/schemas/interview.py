@@ -30,6 +30,9 @@ class ResumeRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
     parse_status: ParseStatus
+    # Populated only when parse_status is `failed`. The UI shows this instead of
+    # a generic timeout, so the person knows whether to retry or to wait.
+    failure_reason: str | None = None
     skills: list[SkillRead] = []
 
 

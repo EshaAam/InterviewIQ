@@ -35,3 +35,8 @@ class Resume(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     parse_status: Mapped[ParseStatus] = mapped_column(
         SAEnum(ParseStatus, name="parse_status"), default=ParseStatus.pending
     )
+    #: Why parsing failed, in words a candidate can act on. Set when retries are
+    #: exhausted, cleared on a successful parse. Without it the UI can only say
+    #: "this is taking a while", which tells someone to keep waiting for
+    #: something that is not coming — a daily provider quota takes hours to clear.
+    failure_reason: Mapped[str | None] = mapped_column(Text, default=None)

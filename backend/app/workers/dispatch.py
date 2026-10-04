@@ -95,7 +95,7 @@ class InlineDispatcher:
     async def parse_resume(self, resume_id: uuid.UUID) -> None:
         await self._attempt(
             lambda: pipeline.parse_resume(self.db, self.provider, resume_id),
-            lambda exc: pipeline.give_up_resume(self.db, resume_id),
+            lambda exc: pipeline.give_up_resume(self.db, resume_id, exc),
         )
 
     async def generate_questions(self, session_id: uuid.UUID) -> None:
@@ -104,7 +104,9 @@ class InlineDispatcher:
                 self.db, self.provider, session_id, embedder=self.embedder
             ),
             lambda exc: pipeline.give_up_session(
-                self.db, session_id, f"Question generation did not complete: {exc}"
+                self.db,
+                session_id,
+                pipeline.describe_failure("Generating your questions", exc),
             ),
         )
 
@@ -123,7 +125,9 @@ class InlineDispatcher:
         await self._attempt(
             lambda: pipeline.build_report(self.db, self.provider, session_id),
             lambda exc: pipeline.give_up_session(
-                self.db, session_id, f"Grading did not complete: {exc}"
+                self.db,
+                session_id,
+                pipeline.describe_failure("Grading your answers", exc),
             ),
         )
 

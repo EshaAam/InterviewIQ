@@ -90,20 +90,13 @@ def _with_retries(
         ) from exc
 
 
-def _give_up_message(stage: str, exc: Exception) -> str:
-    return (
-        f"{stage} did not complete after {settings.TASK_MAX_RETRIES + 1} attempts "
-        f"(the AI provider kept failing: {exc})"
-    )
-
-
 @celery_app.task(name="pipeline.parse_resume", bind=True, max_retries=None)
 def parse_resume_task(self: Task, resume_id: str) -> None:
     rid = uuid.UUID(resume_id)
     _with_retries(
         self,
         lambda db, p: pipeline.parse_resume(db, p, rid),
-        lambda db, p, exc: pipeline.give_up_resume(db, rid),
+        lambda db, p, exc: pipeline.give_up_resume(db, rid, exc),
     )
 
 
@@ -114,7 +107,7 @@ def generate_questions_task(self: Task, session_id: str) -> None:
         self,
         lambda db, p: pipeline.generate_questions(db, p, sid),
         lambda db, p, exc: pipeline.give_up_session(
-            db, sid, _give_up_message("Question generation", exc)
+            db, sid, pipeline.describe_failure("Generating your questions", exc)
         ),
     )
 
@@ -136,7 +129,7 @@ def build_report_task(self: Task, session_id: str) -> None:
         self,
         lambda db, p: pipeline.build_report(db, p, sid),
         lambda db, p, exc: pipeline.give_up_session(
-            db, sid, _give_up_message("Grading", exc)
+            db, sid, pipeline.describe_failure("Grading your answers", exc)
         ),
     )
 

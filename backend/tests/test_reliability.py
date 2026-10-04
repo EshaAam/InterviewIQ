@@ -67,7 +67,12 @@ async def test_transient_generation_failure_gives_up_with_a_reason(
 
     session = (await auth_client.get(f"{API}/sessions/{sid}")).json()
     assert session["state"] == "FAILED"  # not stuck in CREATED
-    assert "did not complete" in session["failure_reason"]
+    # Names the stage and tells the person what to do, without leaking the raw
+    # provider message (model names, quota ids, sometimes key hints).
+    reason = session["failure_reason"]
+    assert "Generating your questions" in reason
+    assert "Try again" in reason
+    assert "503 from provider" not in reason
     # The failed attempt was rolled back, but its bill wasn't.
     statuses = set(await db_session.scalars(select(LLMCall.status)))
     assert "error" in statuses
@@ -92,7 +97,9 @@ async def test_transient_grading_failure_fails_session_and_keeps_nothing(
 
     session = (await auth_client.get(f"{API}/sessions/{sid}")).json()
     assert session["state"] == "FAILED"  # not stuck in EVALUATING
-    assert "Grading did not complete" in session["failure_reason"]
+    reason = session["failure_reason"]
+    assert "Grading your answers" in reason
+    assert "provider down" not in reason
     assert await _count(db_session, Evaluation) == 0  # the attempt rolled back
     assert await _count(db_session, Report) == 0
 

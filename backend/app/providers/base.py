@@ -29,6 +29,18 @@ class LLMTransientError(LLMError):
     """
 
 
+class LLMRateLimited(LLMTransientError):
+    """Every key is rate-limited or out of quota.
+
+    A subclass of `LLMTransientError` so the retry wrapper and circuit breaker
+    treat it exactly as they did before — it *is* transient. It exists as its
+    own type only so a failure can be explained honestly to the person waiting:
+    "the provider's limit is reached, come back later" is actionable, while
+    "this is taking longer than usual" tells them to keep waiting for something
+    that will not arrive. A daily quota can take hours to reset.
+    """
+
+
 class LLMValidationError(LLMError):
     """Model output could not be coerced into the requested schema.
 

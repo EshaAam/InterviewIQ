@@ -25,6 +25,7 @@ from pydantic import BaseModel, ValidationError
 from app.providers.base import (
     LLMError,
     LLMProvider,
+    LLMRateLimited,
     LLMTransientError,
     LLMValidationError,
 )
@@ -121,7 +122,7 @@ class GeminiProvider:
                     last_rate_limit = exc
                     continue
                 raise self._map_error(exc) from exc
-        raise LLMTransientError(
+        raise LLMRateLimited(
             f"all {len(self._pool)} gemini keys rate-limited: {last_rate_limit}"
         )
 
