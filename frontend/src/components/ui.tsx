@@ -195,10 +195,32 @@ export function Tag({ children }: { children: ReactNode }) {
 }
 
 /**
- * One tone per SessionState. The label is the raw enum value on purpose — a
- * recruiter debugging a stuck session should see the same string the API and
- * the database use, not a prettified synonym.
+ * Plain-English name for each SessionState, for every screen a person reads.
+ *
+ * This replaced showing the raw enum. The original reasoning — a recruiter
+ * debugging a stuck session should see the string the API and database use —
+ * still holds, so the raw value is kept on the pill as a hover title rather
+ * than thrown away. But "NEEDS_HUMAN_REVIEW" and "EVALUATING" in front of a
+ * candidate read like an error code, and the person most likely to be looking
+ * at a stuck session is the one waiting on it, not the one debugging it.
+ *
+ * `Record` keeps this exhaustive: a new backend state fails the build here
+ * until it has a name, exactly as STATE_TONE does for its colour.
  */
+export const STATE_LABEL: Record<SessionState, string> = {
+  CREATED: "Starting",
+  PARSING: "Reading resume",
+  GENERATING_QS: "Writing questions",
+  READY: "Ready",
+  IN_PROGRESS: "In progress",
+  EVALUATING: "Scoring",
+  COMPLETED: "Completed",
+  NEEDS_HUMAN_REVIEW: "Needs review",
+  FAILED: "Failed",
+  EXPIRED: "Expired",
+};
+
+/** One tone per SessionState. */
 const STATE_TONE: Record<SessionState, Tone> = {
   CREATED: "info",
   PARSING: "info",
@@ -224,10 +246,13 @@ const LIVE: ReadonlySet<SessionState> = new Set([
 export function StatusPill({ state }: { state: SessionState }) {
   return (
     <span
+      // The raw value stays reachable for whoever is matching this against an
+      // API response or a database row.
+      title={state}
       className={`inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full px-2.5 py-[3px] text-xs font-semibold tracking-[0.02em] ${TONES[STATE_TONE[state]]}`}
     >
       {LIVE.has(state) && <PulseDot />}
-      {state}
+      {STATE_LABEL[state]}
     </span>
   );
 }

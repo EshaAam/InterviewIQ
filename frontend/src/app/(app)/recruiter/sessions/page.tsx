@@ -15,6 +15,7 @@ import {
   PageHeading,
   Shell,
   Skeleton,
+  STATE_LABEL,
   StatusPill,
 } from "@/components/ui";
 
@@ -94,7 +95,9 @@ export default function RecruiterSessionsPage() {
                     transition={{ type: "spring", stiffness: 420, damping: 34 }}
                   />
                 )}
-                <span className="relative">{option}</span>
+                <span className="relative">
+                  {option === "All" ? "All" : STATE_LABEL[option]}
+                </span>
               </button>
             );
           })}

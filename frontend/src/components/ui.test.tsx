@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { SessionState } from "@/lib/api";
-import { ScoreBar, StatusPill } from "./ui";
+import { ScoreBar, STATE_LABEL, StatusPill } from "./ui";
 
 afterEach(cleanup);
 
@@ -32,9 +32,24 @@ describe("StatusPill", () => {
     "EXPIRED",
   ];
 
-  it.each(STATES)("renders %s as the raw enum value", (state) => {
+  it.each(STATES)("shows %s in plain English", (state) => {
     render(<StatusPill state={state} />);
-    // Same string as the API and the database, so a recruiter and a log agree.
-    expect(screen.getByText(state).textContent).toBe(state);
+    const pill = screen.getByText(STATE_LABEL[state]);
+    // A candidate should never read an enum like NEEDS_HUMAN_REVIEW.
+    expect(pill.textContent).not.toContain("_");
+    expect(pill.textContent).not.toBe(state);
+  });
+
+  it.each(STATES)("keeps the raw %s value in the hover title", (state) => {
+    render(<StatusPill state={state} />);
+    // So a recruiter matching the pill against an API response or a database
+    // row still has the exact string.
+    expect(screen.getByText(STATE_LABEL[state]).getAttribute("title")).toBe(state);
+  });
+
+  it("gives every state a distinct label", () => {
+    // Two states sharing a label would make the filter chips ambiguous.
+    const labels = STATES.map((s) => STATE_LABEL[s]);
+    expect(new Set(labels).size).toBe(labels.length);
   });
 });
