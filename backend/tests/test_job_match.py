@@ -165,9 +165,16 @@ async def test_gap_queries_are_retrieved_before_skills(db_session, embedder, mon
         k=1,
         token_budget=400,
     )
-    # The first label is the first thing packed, and gaps are packed first.
+    # The first label is the first thing packed, and gaps are packed first, so it
+    # must be the gap query's own top hit. Compared against a live search rather
+    # than a fixed topic, so adding knowledge-base files can't break it.
+    from app.services.retrieval import search
+
+    [gap_top] = await search(
+        db_session, embedder, "Postgres index tuning and query plans", k=1
+    )
     first = next(iter(context.sources.values()))
-    assert first.topic == "sql"
+    assert first.chunk_id == gap_top.chunk_id
 
 
 # --- the coverage loop -----------------------------------------------------
