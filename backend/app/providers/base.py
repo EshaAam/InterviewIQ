@@ -41,6 +41,17 @@ class LLMRateLimited(LLMTransientError):
     """
 
 
+class LLMOverloaded(LLMTransientError):
+    """The provider is up but shedding load (a 503 "high demand").
+
+    Still transient, so task-level retries and the circuit breaker treat it as
+    before. Its own type exists for two reasons: an overload does not clear in
+    the sub-second gaps the in-process retry uses, so retrying there only
+    multiplies requests against a daily quota; and the person waiting deserves
+    "the AI provider is overloaded" rather than a generic failure.
+    """
+
+
 class LLMValidationError(LLMError):
     """Model output could not be coerced into the requested schema.
 

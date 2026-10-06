@@ -49,6 +49,7 @@ from app.models.resume import ParseStatus
 from app.providers.base import (
     LLMCircuitOpen,
     LLMError,
+    LLMOverloaded,
     LLMProvider,
     LLMRateLimited,
     LLMTransientError,
@@ -595,6 +596,12 @@ def describe_failure(stage: str, exc: Exception) -> str:
             f"{stage} could not run: the AI provider's request limit has been "
             f"reached. This usually clears within a few hours — your upload is "
             f"saved, so try again later."
+        )
+    if isinstance(exc, LLMOverloaded):
+        return (
+            f"{stage} could not run: the AI provider is overloaded right now. "
+            f"These spikes usually pass within minutes — nothing has been lost, "
+            f"try again shortly."
         )
     if isinstance(exc, LLMCircuitOpen):
         return (

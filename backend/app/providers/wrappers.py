@@ -25,7 +25,9 @@ from pydantic import BaseModel, ValidationError
 
 from app.providers.base import (
     LLMCircuitOpen,
+    LLMOverloaded,
     LLMProvider,
+    LLMRateLimited,
     LLMTransientError,
     LLMValidationError,
 )
@@ -35,7 +37,10 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class RetryingProvider:
-    """Exponential backoff + jitter on transient faults only."""
+    """Exponential backoff + jitter on brief transient faults.
+
+    Overload and rate limits are passed through untouched; see `complete`.
+    """
 
     def __init__(
         self,
@@ -58,6 +63,12 @@ class RetryingProvider:
         for attempt in range(self._max_attempts + 1):
             try:
                 return await self.inner.complete(prompt, schema, temperature=temperature)
+            except (LLMOverloaded, LLMRateLimited):
+                # Neither clears in the sub-second gaps used here. Retrying only
+                # multiplied requests — up to 15 per stage during a Gemini
+                # overload, against a free tier of 20 a day — so hand it straight
+                # to the task-level retry, which waits 30s, 60s, 120s...
+                raise
             except LLMTransientError as exc:
                 last = exc
                 if attempt == self._max_attempts:

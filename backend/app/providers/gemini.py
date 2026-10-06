@@ -24,6 +24,7 @@ from pydantic import BaseModel, ValidationError
 
 from app.providers.base import (
     LLMError,
+    LLMOverloaded,
     LLMProvider,
     LLMRateLimited,
     LLMTransientError,
@@ -169,6 +170,8 @@ class GeminiProvider:
     def _map_error(exc) -> LLMError:
         # 5xx is transient (retry/breaker); other 4xx are terminal.
         code = getattr(exc, "code", None)
+        if code == 503:
+            return LLMOverloaded(f"gemini overloaded (503): {exc}")
         if isinstance(code, int) and code >= 500:
             return LLMTransientError(f"gemini transient error {code}: {exc}")
         return LLMError(f"gemini error {code}: {exc}")
