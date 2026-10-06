@@ -33,6 +33,18 @@ export type PollOptions = {
   onConnectionChange?: (problem: unknown | null) => void;
 };
 
+/**
+ * How long to wait on any job the background worker runs.
+ *
+ * The worker retries a failing AI call after 30s, 60s, 120s and 240s, so it can
+ * take about 7.5 minutes to finish or give up with a reason. Waiting less
+ * than that means the page shows "taking longer than usual" while the server
+ * is still working, and the real outcome never reaches the person. Each
+ * screen used to pick its own number, and they drifted apart; they all use
+ * this now. Change it together with TASK_RETRY_BASE_SECONDS on the backend.
+ */
+export const WORKER_WAIT_MS = 10 * 60_000;
+
 const FIRST_DELAY_MS = 1000;
 const MAX_DELAY_MS = 5000;
 

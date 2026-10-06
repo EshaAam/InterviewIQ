@@ -27,7 +27,7 @@ import {
   type Session,
   type SessionState,
 } from "@/lib/api";
-import { isAbort, pollUntil, PollTimeout } from "@/lib/poll";
+import { isAbort, pollUntil, PollTimeout, WORKER_WAIT_MS } from "@/lib/poll";
 import { EASE, FadeIn } from "@/components/motion";
 import {
   Button,
@@ -80,9 +80,9 @@ const PREPARING: SessionState[] = ["CREATED", "PARSING", "GENERATING_QS"];
 
 const WAITS: Record<WaitPhase, { settled: (s: Session) => boolean; timeoutMs: number }> = {
   // The worker is writing questions.
-  preparing: { settled: (s) => !PREPARING.includes(s.state), timeoutMs: 3 * 60_000 },
+  preparing: { settled: (s) => !PREPARING.includes(s.state), timeoutMs: WORKER_WAIT_MS },
   // The worker is grading and building the report.
-  grading: { settled: (s) => s.state !== "EVALUATING", timeoutMs: 10 * 60_000 },
+  grading: { settled: (s) => s.state !== "EVALUATING", timeoutMs: WORKER_WAIT_MS },
   // Our clock says time's up; ask until the server agrees (clocks drift).
   deadline: { settled: (s) => s.state !== "IN_PROGRESS", timeoutMs: 2 * 60_000 },
 };

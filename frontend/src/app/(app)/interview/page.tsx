@@ -25,7 +25,7 @@ import {
   type SessionSummary,
 } from "@/lib/api";
 import { humanWhen, minutesLeft, sessionName, toHundred } from "@/lib/format";
-import { isAbort, pollUntil, PollTimeout } from "@/lib/poll";
+import { isAbort, pollUntil, PollTimeout, WORKER_WAIT_MS } from "@/lib/poll";
 import { EASE, Stagger, StaggerItem } from "@/components/motion";
 import {
   Button,
@@ -324,7 +324,7 @@ function NewInterview() {
         // Long enough to outlast the worker's retry schedule (30+60+120+240s),
         // so the server's verdict — and its reason — actually reaches the user
         // instead of the generic "taking a while" notice winning the race.
-        { signal: controller.signal, timeoutMs: 8 * 60_000 },
+        { signal: controller.signal, timeoutMs: WORKER_WAIT_MS },
       );
       setPendingResumeId(null);
       if (parsed.parse_status === "failed") {

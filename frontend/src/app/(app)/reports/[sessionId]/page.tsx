@@ -12,7 +12,7 @@ import {
   type Session,
 } from "@/lib/api";
 import { humanWhen, sessionName, toHundred } from "@/lib/format";
-import { isAbort, pollUntil, PollTimeout } from "@/lib/poll";
+import { isAbort, pollUntil, PollTimeout, WORKER_WAIT_MS } from "@/lib/poll";
 import { DownloadPdfButton } from "@/components/download-pdf-button";
 import { CountUp, EASE, ScoreRing, Stagger, StaggerItem } from "@/components/motion";
 import {
@@ -53,7 +53,7 @@ export default function ReportPage({
         latest = await pollUntil(
           () => getSession(sessionId),
           (s) => s.state !== "EVALUATING",
-          { signal: controller.signal, timeoutMs: 10 * 60_000 },
+          { signal: controller.signal, timeoutMs: WORKER_WAIT_MS },
         );
         setSession(latest);
       }
