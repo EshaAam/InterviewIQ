@@ -107,7 +107,8 @@ async def test_recruiter_sees_signals_candidate_does_not(
 
     detail = (await client.get(f"{API}/recruiter/sessions/{sid}", headers=rec)).json()
     assert detail["integrity_flag"] is True
-    first, second = (q["answers"][0]["integrity"] for q in detail["questions"])
+    # Only the first two questions are answered; the rest are left blank.
+    first, second = (q["answers"][0]["integrity"] for q in detail["questions"][:2])
     assert first == []
     assert {s["code"] for s in second} == {"mostly_pasted", "too_fast"}
 

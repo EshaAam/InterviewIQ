@@ -36,6 +36,7 @@ from app.core.config import settings
 from app.embedders import Embedder
 from app.models import ExtractedSkill
 from app.providers.base import LLMValidationError
+from app.schemas.pipeline import QUESTIONS_PER_INTERVIEW
 from app.services.retrieval import RetrievedChunk, search
 
 #: Prefix for the labels the model cites. Deliberately short and uniform.
@@ -156,7 +157,9 @@ def build_prompt(resume_text: str, context: GroundedContext) -> str:
     key — which is worse than no citation, because it looks checked.
     """
     return (
-        "You are writing interview questions for the candidate described below.\n\n"
+        f"You are writing exactly {QUESTIONS_PER_INTERVIEW} interview questions for the "
+        "candidate described below. Spread them across the candidate's skills rather "
+        "than asking several about the same one.\n\n"
         "SOURCES\n"
         "Use ONLY the material in these sources. Do not rely on your own\n"
         "knowledge. Every question must come from at least one source, and must\n"

@@ -22,6 +22,7 @@ from app.models import Answer, Evaluation, InterviewSession, LLMCall, Report, Re
 from app.models.session import SessionState
 from app.providers import FakeProvider, LLMTransientError, LLMValidationError
 from app.schemas.pipeline import (
+    QUESTIONS_PER_INTERVIEW,
     AnswerEvaluationResult,
     QuestionGenerationResult,
     SkillExtractionResult,
@@ -161,7 +162,7 @@ async def test_crash_mid_grading_leaves_nothing_and_redelivery_scores_once(
     await auth_client.post(f"{API}/sessions/{sid}/finish")
     session_id = uuid.UUID(sid)
     answers = await _count(db_session, Answer)
-    assert answers == 2
+    assert answers == QUESTIONS_PER_INTERVIEW
 
     # Attempt 1 dies after grading one answer. Its transaction (here a
     # savepoint) rolls back; the ledger rows go through the independent writer.

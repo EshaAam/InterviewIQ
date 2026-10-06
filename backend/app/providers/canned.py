@@ -12,6 +12,7 @@ import re
 
 from app.providers.fake import CannedMap
 from app.schemas.pipeline import (
+    QUESTIONS_PER_INTERVIEW,
     AnswerEvaluationResult,
     ConceptCoverage,
     ExtractedSkillOut,
@@ -47,7 +48,12 @@ def _fake_skills(prompt: str) -> SkillExtractionResult:
 
 def _fake_questions(prompt: str) -> QuestionGenerationResult:
     text = prompt.lower()
-    topics = [s for s in _KNOWN_SKILLS if s in text][:3] or ["python", "sql"]
+    found = [s for s in _KNOWN_SKILLS if s in text]
+    # Pad with the rest of the known list so there are always enough topics
+    # for the schema minimum, keeping the order (and so the output) stable.
+    topics = (found + [s for s in _KNOWN_SKILLS if s not in found])[
+        :QUESTIONS_PER_INTERVIEW
+    ]
     # When the prompt carries a sources block, cite from it — a real model would,
     # and without this the fake could never exercise the grounded path at all.
     # Deliberately *valid* labels only; a test that wants the invented-citation

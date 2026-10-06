@@ -32,7 +32,11 @@ from app.models import (
 )
 from app.models.session import SessionState
 from app.providers.base import LLMValidationError
-from app.schemas.pipeline import GeneratedQuestion, QuestionGenerationResult
+from app.schemas.pipeline import (
+    QUESTIONS_PER_INTERVIEW,
+    GeneratedQuestion,
+    QuestionGenerationResult,
+)
 from app.services.grounding import GroundedContext, build_context, build_prompt
 from app.services.kb_ingest import DEFAULT_KB_DIR, ingest_kb
 from app.services.pipeline import PROMPT_VERSION, generate_questions
@@ -194,11 +198,13 @@ async def test_an_invented_citation_is_treated_as_malformed_output(
         QuestionGenerationResult(
             questions=[
                 GeneratedQuestion(
-                    text="Invented citation.",
+                    text=f"Question {i}.",
                     topic="python",
                     expected_concepts=["a"],
-                    source_chunk_ids=["S999"],
+                    # One bad citation is enough to sink the batch.
+                    source_chunk_ids=["S999"] if i == 0 else [],
                 )
+                for i in range(QUESTIONS_PER_INTERVIEW)
             ]
         ),
     )

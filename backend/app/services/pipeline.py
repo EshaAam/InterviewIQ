@@ -55,6 +55,7 @@ from app.providers.base import (
 )
 from app.providers.cache import served_from_cache
 from app.schemas.pipeline import (
+    QUESTIONS_PER_INTERVIEW,
     AnswerEvaluationResult,
     QuestionGenerationResult,
     SkillExtractionResult,
@@ -296,7 +297,10 @@ async def generate_questions(
                 await db.flush()
 
         if context.is_empty:
-            prompt = f"Generate interview questions for a candidate with:\n{resume_text}"
+            prompt = (
+                f"Generate exactly {QUESTIONS_PER_INTERVIEW} interview questions for "
+                f"a candidate with:\n{resume_text}"
+            )
         else:
             prompt = build_grounded_prompt(resume_text, context)
 

@@ -7,6 +7,7 @@ from httpx import AsyncClient
 from app.core.config import settings
 from app.providers import FakeProvider
 from app.schemas.pipeline import (
+    QUESTIONS_PER_INTERVIEW,
     AnswerEvaluationResult,
     ConceptCoverage,
     RubricScores,
@@ -163,14 +164,14 @@ async def test_clearing_every_flag_completes_session_and_rebuilds_report(
 ) -> None:
     _force_divergence(provider)
     cand = await _login(client, "cand6@example.com")
-    # Two skills -> two questions -> two flagged answers.
+    # Every question diverges, so every answer is flagged.
     sid = await _run_diverging_interview(client, cand, resume="python and fastapi")
     before = (await client.get(f"{API}/sessions/{sid}/report", headers=cand)).json()
     assert before["human_reviewed"] is False
 
     rec = await recruiter("recruiter3@example.com")
     flagged = await _queue_for(client, rec, sid)
-    assert len(flagged) == 2
+    assert len(flagged) == QUESTIONS_PER_INTERVIEW
 
     # Clearing all but the last keeps the session in review...
     for item in flagged[:-1]:

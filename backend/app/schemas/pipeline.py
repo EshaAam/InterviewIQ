@@ -38,8 +38,16 @@ class GeneratedQuestion(BaseModel):
     source_chunk_ids: list[str] = Field(default_factory=list)
 
 
+# Five is the floor: three questions was too thin to say much about a candidate.
+# The cap keeps grading cost bounded, since every answer is a separate LLM call.
+QUESTIONS_PER_INTERVIEW = 5
+MAX_QUESTIONS = 8
+
+
 class QuestionGenerationResult(BaseModel):
-    questions: list[GeneratedQuestion] = Field(min_length=1)
+    questions: list[GeneratedQuestion] = Field(
+        min_length=QUESTIONS_PER_INTERVIEW, max_length=MAX_QUESTIONS
+    )
 
 
 # --- Stage 3: answer evaluation ---
