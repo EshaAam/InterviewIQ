@@ -118,6 +118,22 @@ export default function RecruiterSessionDetailPage({
             {detail.failure_reason}
           </Notice>
         )}
+        {detail.resume_integrity.length > 0 && (
+          /* The résumé tried to instruct the AI that wrote these questions.
+             Advisory: the text was fenced off as data, so this says what was
+             attempted, not that it worked. */
+          <Notice tone="warn" title="Résumé — advisory">
+            {detail.resume_integrity.map((signal) => (
+              <span key={signal.code} className="block">
+                {signal.detail}
+              </span>
+            ))}
+            <span className="mt-1 block text-xs opacity-80">
+              The résumé was passed to the AI as data, never as instructions. Check the
+              questions below look like a normal interview.
+            </span>
+          </Notice>
+        )}
 
         <div className="flex flex-wrap gap-4">
           <StatCard
@@ -309,8 +325,8 @@ function AnswerBlock({
             </span>
           ))}
           <span className="mt-1 block text-xs opacity-80">
-            From browser-reported typing data. A reason to read closely, not a finding — it
-            has not changed the score.
+            From browser-reported typing data and the answer&apos;s own text. A reason to read
+            closely, not a finding — it has not changed the score.
           </span>
         </Notice>
       )}

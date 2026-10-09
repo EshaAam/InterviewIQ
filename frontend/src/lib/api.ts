@@ -174,7 +174,11 @@ export type EvaluationDetail = {
 
 /** A hint for a human, never a verdict — and never applied to a score. */
 export type IntegritySignal = {
-  code: "mostly_pasted" | "too_fast";
+  /**
+   * `prompt_injection` comes from the text itself (an attempt to instruct the
+   * AI); the other two from browser-reported typing telemetry.
+   */
+  code: "mostly_pasted" | "too_fast" | "prompt_injection";
   /** A sentence ready to show as-is. */
   detail: string;
 };
@@ -213,6 +217,8 @@ export type RecruiterSessionDetail = {
   job_description: string | null;
   /** Requirements the résumé did not evidence, as computed at generation time. */
   jd_gaps: string[];
+  /** Signals on the résumé the questions came from — today only prompt injection. */
+  resume_integrity: IntegritySignal[];
   questions: QuestionDetail[];
   report: Report | null;
   integrity_flag: boolean;
