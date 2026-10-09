@@ -6,6 +6,7 @@ from httpx import AsyncClient
 
 from app.core.config import settings
 from app.providers import FakeProvider
+from app.providers.canned import prompt_concepts
 from app.schemas.pipeline import (
     QUESTIONS_PER_INTERVIEW,
     AnswerEvaluationResult,
@@ -29,12 +30,16 @@ async def _login(client: AsyncClient, email: str) -> dict:
 
 
 def _force_divergence(provider: FakeProvider) -> None:
-    # LLM insists on full coverage; answers below share no words with the
-    # concepts, so the deterministic pass scores ~0 -> the passes diverge.
+    # LLM insists every expected concept is covered; answers below share no
+    # words with the concepts, so the deterministic pass scores ~0 -> diverge.
+    # It names the prompt's real concepts: coverage for a concept nobody asked
+    # about is ignored by the grading output check.
     provider.register(
         AnswerEvaluationResult,
-        AnswerEvaluationResult(
-            concept_coverage=[ConceptCoverage(concept="x", covered=1.0)],
+        lambda prompt: AnswerEvaluationResult(
+            concept_coverage=[
+                ConceptCoverage(concept=c, covered=1.0) for c in prompt_concepts(prompt)
+            ],
             llm_scores=RubricScores(correctness=1.0, depth=1.0, clarity=1.0),
             confidence=0.9,
         ),

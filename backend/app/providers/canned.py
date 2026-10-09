@@ -21,6 +21,7 @@ from app.schemas.pipeline import (
     RubricScores,
     SkillExtractionResult,
 )
+from app.services.prompt_safety import unfence
 
 # A small skill vocabulary the fake parser "detects" when present in resume text.
 _KNOWN_SKILLS = [
@@ -88,20 +89,32 @@ def _source_labels(prompt: str) -> list[str]:
     return list(seen)
 
 
+def prompt_concepts(prompt: str) -> list[str]:
+    """The expected concepts a grading prompt lists, in order.
+
+    Public so a test can build a grader that answers about the real concepts —
+    one that names concepts the prompt never asked about is now ignored.
+    """
+    _, _, block = prompt.partition("Expected concepts:\n")
+    concepts: list[str] = []
+    for line in block.splitlines():
+        if not line.startswith("- "):
+            break
+        concepts.append(line[2:].strip())
+    return concepts
+
+
 def _fake_evaluation(prompt: str) -> AnswerEvaluationResult:
     # Deterministic, plausible evaluation based on word overlap between each
     # expected concept and the answer text — the same signal the (fake)
     # embedding pass uses, so the two passes naturally agree for real answers.
-    # rpartition, not partition: the grounded prompt carries reference
-    # passages before the answer, and one of them may contain the word
-    # "Answer:". The real answer is always last.
-    before, _, after = prompt.rpartition("Answer:")
-    answer_tokens = set(re.findall(r"[a-z0-9]+", after.lower()))
-    concepts = [
-        line.strip("- ").strip()
-        for line in before.splitlines()
-        if line.strip().startswith("-")
-    ] or ["general"]
+    # The answer is read from its fence, and the concepts from the block under
+    # "Expected concepts:" only — so neither a bulleted answer nor a bulleted
+    # source passage can pass itself off as an expected concept.
+    fenced = unfence(prompt, "answer")
+    answer_text = fenced if fenced is not None else prompt.rpartition("Answer:")[2]
+    answer_tokens = set(re.findall(r"[a-z0-9]+", answer_text.lower()))
+    concepts = prompt_concepts(prompt) or ["general"]
 
     coverage = []
     for concept in concepts:
