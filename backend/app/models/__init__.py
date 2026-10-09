@@ -17,6 +17,7 @@ from app.models.report import Report
 from app.models.resume import ParseStatus, Resume
 from app.models.session import InterviewSession, SessionState
 from app.models.user import User, UserRole
+from app.models.voice import VoiceTranscription
 
 __all__ = [
     "Base",
@@ -36,4 +37,5 @@ __all__ = [
     "KBChunk",
     "KB_EMBEDDING_DIM",
     "KBCoverageMiss",
+    "VoiceTranscription",
 ]

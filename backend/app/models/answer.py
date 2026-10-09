@@ -36,3 +36,6 @@ class Answer(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     time_taken_ms: Mapped[int | None] = mapped_column(Integer, default=None)
     paste_events: Mapped[int] = mapped_column(Integer, default=0)
     keystroke_count: Mapped[int | None] = mapped_column(Integer, default=None)
+    #: Characters of `text` that came from this question's voice transcripts,
+    #: measured by the server at submit time — not reported by the browser.
+    dictated_chars: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
