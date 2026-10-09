@@ -55,10 +55,18 @@ def assess_answer(
     min_chars: int,
     min_typed_share: float,
     max_chars_per_second: float,
+    dictated_chars: int = 0,
 ) -> list[IntegritySignal]:
-    """Pure policy: telemetry in, signals out. No DB, no settings."""
+    """Pure policy: telemetry in, signals out. No DB, no settings.
+
+    `dictated_chars` is the server-measured part of the answer that came from
+    voice transcripts. It counts as the candidate's own words for the typed
+    share, and is left out of the typing speed — people speak at 12-15
+    characters a second, which is "too fast" only for fingers.
+    """
     if chars < min_chars:
         return []
+    dictated = max(0, min(dictated_chars, chars))
 
     signals: list[IntegritySignal] = []
 
@@ -67,9 +75,9 @@ def assess_answer(
     if keystroke_count is not None:
         # Backspaces count as keystrokes too, so this *over*-estimates typing:
         # the error runs in the candidate's favour.
-        typed_share = min(1.0, keystroke_count / chars)
+        typed_share = min(1.0, (keystroke_count + dictated) / chars)
         if typed_share < min_typed_share:
-            untyped = chars - min(keystroke_count, chars)
+            untyped = chars - min(keystroke_count + dictated, chars)
             pastes = f"{paste_events} paste{'' if paste_events == 1 else 's'}"
             signals.append(
                 IntegritySignal(
@@ -78,14 +86,16 @@ def assess_answer(
                 )
             )
 
-    if time_taken_ms is not None and time_taken_ms > 0:
+    typed_chars = chars - dictated
+    if time_taken_ms is not None and time_taken_ms > 0 and typed_chars >= min_chars:
         seconds = time_taken_ms / 1000
-        rate = chars / seconds
+        rate = typed_chars / seconds
         if rate > max_chars_per_second:
+            what = f"{typed_chars} typed characters" if dictated else f"{chars} characters"
             signals.append(
                 IntegritySignal(
                     "too_fast",
-                    f"{chars} characters in {seconds:.0f} s ({rate:.0f} chars/s; "
+                    f"{what} in {seconds:.0f} s ({rate:.0f} chars/s; "
                     "fast typists sustain about 8).",
                 )
             )
@@ -109,6 +119,7 @@ def assess(answer: Answer) -> list[IntegritySignal]:
         min_chars=settings.INTEGRITY_MIN_CHARS,
         min_typed_share=settings.INTEGRITY_MIN_TYPED_SHARE,
         max_chars_per_second=settings.INTEGRITY_MAX_CHARS_PER_SECOND,
+        dictated_chars=answer.dictated_chars or 0,
     )
 
 
