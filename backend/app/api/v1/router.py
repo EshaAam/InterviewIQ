@@ -6,7 +6,7 @@ exactly one place to see the whole API surface.
 
 from fastapi import APIRouter
 
-from app.api.v1.routes import auth, health, recruiter, resumes, sessions
+from app.api.v1.routes import auth, health, recruiter, resumes, sessions, voice
 
 api_router = APIRouter()
 api_router.include_router(health.router)
@@ -14,3 +14,4 @@ api_router.include_router(auth.router)
 api_router.include_router(resumes.router)
 api_router.include_router(sessions.router)
 api_router.include_router(recruiter.router)
+api_router.include_router(voice.router)

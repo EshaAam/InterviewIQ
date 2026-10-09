@@ -90,6 +90,21 @@ class AnswerCreate(BaseModel):
     keystroke_count: int | None = None
 
 
+class TranscriptRead(BaseModel):
+    """A draft for the candidate to check and edit — not yet an answer."""
+
+    text: str
+    duration_seconds: float
+    language: str
+
+
+class FeaturesRead(BaseModel):
+    """Optional capabilities this server offers, so the UI hides what it lacks."""
+
+    voice_answers: bool
+    voice_max_seconds: int
+
+
 class AnswerRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
@@ -187,6 +202,8 @@ class AnswerDetail(BaseModel):
     paste_events: int
     keystroke_count: int | None
     evaluation: EvaluationDetail | None = None
+    # Characters the server matched to this question's voice transcripts.
+    dictated_chars: int = 0
     integrity: list[IntegritySignalRead] = []
 
 

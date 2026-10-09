@@ -34,6 +34,7 @@ from app.schemas.interview import (
     SessionRead,
     SessionSummary,
 )
+from app.services import dictation
 from app.services.reports import pdf_response, render_session_pdf, to_report_read
 from app.services.session_service import IllegalTransition, SessionService
 from app.workers.dispatch import PipelineDispatcher, get_dispatcher
@@ -278,6 +279,9 @@ async def submit_answer(
         time_taken_ms=payload.time_taken_ms,
         paste_events=payload.paste_events,
         keystroke_count=payload.keystroke_count,
+        # Measured here, from the server's own transcripts — never taken from
+        # the browser, or "I dictated it" would excuse any paste.
+        dictated_chars=await dictation.measure(db, payload.question_id, payload.text),
     )
     db.add(answer)
     try:
