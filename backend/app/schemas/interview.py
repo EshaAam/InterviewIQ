@@ -174,7 +174,7 @@ class IntegritySignalRead(BaseModel):
     """An advisory hint — never a verdict, never applied to a score."""
 
     model_config = ConfigDict(from_attributes=True)
-    code: Literal["mostly_pasted", "too_fast"]
+    code: Literal["mostly_pasted", "too_fast", "prompt_injection"]
     detail: str
 
 
@@ -250,6 +250,9 @@ class RecruiterSessionDetail(BaseModel):
     # Stored rather than recomputed so this shows what the questions actually
     # targeted, not what they would target against today's thresholds.
     jd_gaps: list[str] = Field(default_factory=list)
+    # Signals on the résumé the questions were generated from — today only
+    # `prompt_injection`. Advisory, like the per-answer ones.
+    resume_integrity: list[IntegritySignalRead] = Field(default_factory=list)
     questions: list[QuestionDetail]
     report: ReportRead | None
     integrity_flag: bool = False

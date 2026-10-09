@@ -10,10 +10,10 @@ from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Answer, Evaluation, InterviewSession, Question, Report
+from app.models import Answer, Evaluation, InterviewSession, Question, Report, Resume
 from app.schemas.interview import ReportRead, StudyLink
 from app.services.citations import load_citations
-from app.services.integrity import assess
+from app.services.integrity import assess, assess_resume
 from app.services.report_pdf import IntegrityLine, ReportPdfData, render_report_pdf
 
 
@@ -115,7 +115,11 @@ async def render_session_pdf(
             .where(Question.session_id == session.id)
             .order_by(Question.ordinal)
         )
+        resume = await db.get(Resume, session.resume_id) if session.resume_id else None
         integrity = [
+            IntegrityLine(question=None, topic="", detail=signal.detail)
+            for signal in assess_resume(resume)
+        ] + [
             IntegrityLine(question=ordinal + 1, topic=topic, detail=signal.detail)
             for ordinal, topic, answer in rows.all()
             for signal in assess(answer)

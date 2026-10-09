@@ -22,6 +22,7 @@ from app.models import (
     LLMCall,
     Question,
     Report,
+    Resume,
     User,
 )
 from app.models.session import SessionState
@@ -43,7 +44,7 @@ from app.schemas.interview import (
 )
 from app.services.budget import utc_day_start
 from app.services.citations import load_citations
-from app.services.integrity import assess, flagged_sessions
+from app.services.integrity import assess, assess_resume, flagged_sessions
 from app.services.pipeline import rebuild_report
 from app.services.reports import pdf_response, render_session_pdf, to_report_read
 
@@ -125,6 +126,12 @@ async def session_detail(session_id: uuid.UUID, db: DbSession) -> RecruiterSessi
         integrity_flag = integrity_flag or bool(detail.integrity)
         answers_by_question.setdefault(answer.question_id, []).append(detail)
 
+    resume = await db.get(Resume, session.resume_id) if session.resume_id else None
+    resume_integrity = [
+        IntegritySignalRead.model_validate(signal) for signal in assess_resume(resume)
+    ]
+    integrity_flag = integrity_flag or bool(resume_integrity)
+
     citations = await load_citations(db, questions)
     report = await db.scalar(select(Report).where(Report.session_id == session_id))
     return RecruiterSessionDetail(
@@ -137,6 +144,7 @@ async def session_detail(session_id: uuid.UUID, db: DbSession) -> RecruiterSessi
         failure_reason=session.failure_reason,
         job_description=session.job_description,
         jd_gaps=session.jd_gaps or [],
+        resume_integrity=resume_integrity,
         questions=[
             QuestionDetail(
                 id=q.id,

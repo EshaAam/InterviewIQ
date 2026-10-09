@@ -39,7 +39,7 @@ GAP_BELOW = 0.5
 
 @dataclass(frozen=True)
 class IntegrityLine:
-    question: int  # 1-based, as shown to people
+    question: int | None  # 1-based, as shown to people; None for the résumé
     topic: str
     detail: str
 
@@ -133,7 +133,8 @@ def render_report_pdf(data: ReportPdfData) -> bytes:
         _text(
             pdf,
             "Computed from typing telemetry the browser reports (keystrokes, pastes, "
-            "time). A signal is a reason to look, not a finding - it never changes a score.",
+            "time) and from text that tries to instruct the AI. A signal is a reason "
+            "to look, not a finding - it never changes a score.",
             size=9,
             color=_INK_2,
         )
@@ -141,7 +142,8 @@ def render_report_pdf(data: ReportPdfData) -> bytes:
         if not data.integrity:
             _text(pdf, "No signals.", size=10)
         for line in data.integrity:
-            _text(pdf, f"Q{line.question} - {line.topic}: {line.detail}", size=10)
+            where = "Resume" if line.question is None else f"Q{line.question} - {line.topic}"
+            _text(pdf, f"{where}: {line.detail}", size=10)
 
     # --- Footer ---
     pdf.ln(6)
