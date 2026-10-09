@@ -65,9 +65,10 @@ from app.services import job_match, ledger
 from app.services.grading import grade
 from app.services.grounding import GroundedContext, build_context
 from app.services.grounding import build_prompt as build_grounded_prompt
+from app.services.prompt_safety import UNTRUSTED_DATA_RULE, fence
 from app.services.session_service import SessionService, can_transition
 
-PROMPT_VERSION = "p5-rag-v1"
+PROMPT_VERSION = "p6-fenced-v1"
 
 # Worth trying again later; everything else is a real answer.
 RETRYABLE: tuple[type[Exception], ...] = (LLMTransientError, LLMCircuitOpen)
@@ -183,7 +184,12 @@ async def parse_resume(
     resume.parse_status = ParseStatus.parsing
     await db.flush()
 
-    prompt = f"Extract skills from this resume:\n{resume.text_content or ''}"
+    prompt = (
+        f"{UNTRUSTED_DATA_RULE}\n\n"
+        "Extract the candidate's technical skills from the resume below. For each, "
+        "give a confidence and the exact words from the resume that evidence it.\n\n"
+        f"{fence('resume', resume.text_content or '')}"
+    )
     try:
         result: SkillExtractionResult = await _complete_metered(
             db, provider, prompt, SkillExtractionResult,
@@ -299,8 +305,9 @@ async def generate_questions(
 
         if context.is_empty:
             prompt = (
+                f"{UNTRUSTED_DATA_RULE}\n\n"
                 f"Generate exactly {QUESTIONS_PER_INTERVIEW} interview questions for "
-                f"a candidate with:\n{resume_text}"
+                f"the candidate whose resume is below.\n\n{fence('resume', resume_text)}"
             )
         else:
             prompt = build_grounded_prompt(resume_text, context)
