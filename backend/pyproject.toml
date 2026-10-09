@@ -35,6 +35,14 @@ dependencies = [
 embed = [
     "fastembed>=0.7.0",
 ]
+# Local speech-to-text for voice answers (faster-whisper runs Whisper on the CPU
+# via CTranslate2; PyAV decodes the browser's webm/opus, no system ffmpeg). Off
+# until VOICE_ENABLED=true. av is capped below 16: faster-whisper 1.2 passes
+# `metadata_errors` to `av.open`, which newer PyAV removed — decoding fails.
+voice = [
+    "av>=11,<16",
+    "faster-whisper>=1.1.0",
+]
 
 [dependency-groups]
 dev = [

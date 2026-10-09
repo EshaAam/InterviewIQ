@@ -162,6 +162,30 @@ class Settings(BaseSettings):
     # (typically a scanned PDF) — reject it and ask for a paste instead.
     RESUME_MIN_TEXT_CHARS: int = 40
 
+    # --- Voice answers (local speech-to-text) ---
+    # Off by default, and needs the optional `voice` extra (faster-whisper). With
+    # it off, or the package missing, the feature simply is not offered: the API
+    # reports `voice_answers: false` and the interview page shows no microphone.
+    VOICE_ENABLED: bool = False
+    # base.en: ~145 MB, transcribes ~10x faster than real time on a laptop CPU
+    # with int8. small.en is more accurate and ~3x slower.
+    WHISPER_MODEL: str = "base.en"
+    WHISPER_COMPUTE_TYPE: str = "int8"
+    # Where the model lives. The image pre-downloads it here so a request never
+    # stalls on a 145 MB fetch; empty uses the Hugging Face default cache.
+    WHISPER_CACHE_DIR: str = ""
+    # 0 lets CTranslate2 choose. Pin it low if the API shares a small box.
+    WHISPER_THREADS: int = 0
+    VOICE_LANGUAGE: str = "en"
+    # Per clip. An answer can be built from several clips.
+    VOICE_MAX_SECONDS: int = 180
+    VOICE_MAX_BYTES: int = 10 * 1024 * 1024
+    # Transcription is CPU-bound and local; this caps how much of the API's CPU
+    # one candidate can take, without spending anything.
+    VOICE_MAX_CLIPS_PER_QUESTION: int = 10
+    # Clips transcribed at once per process. More just makes each one slower.
+    VOICE_CONCURRENCY: int = 1
+
     # --- Integrity signals (Phase 5, advisory only) ---
     # Answers shorter than this are never flagged: pasting `SELECT 1` isn't a signal.
     INTEGRITY_MIN_CHARS: int = 120
