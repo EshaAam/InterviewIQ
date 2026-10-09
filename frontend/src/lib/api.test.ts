@@ -5,7 +5,15 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError, apiFetch, describeError, getReportPdf, uploadResume } from "./api";
+import {
+  ApiError,
+  apiFetch,
+  describeError,
+  getFeatures,
+  getReportPdf,
+  transcribeAnswer,
+  uploadResume,
+} from "./api";
 import { getAccessToken, storeTokens, TOKENS_CHANGED } from "./auth";
 
 type Call = { url: string; init: RequestInit };
@@ -146,6 +154,22 @@ describe("request headers", () => {
     expect(calls[0].init.body).toBeInstanceOf(FormData);
     // The browser must write multipart/form-data with its own boundary.
     expect(headerOf(calls[0], "Content-Type")).toBeNull();
+  });
+
+  it("sends a recording as multipart, named for its format, with the question id", async () => {
+    serve(() => json({ text: "hello", duration_seconds: 1, language: "en" }));
+    await transcribeAnswer("s1", "q1", new Blob(["x"], { type: "audio/ogg;codecs=opus" }));
+    const body = calls[0].init.body as FormData;
+    expect(calls[0].url).toMatch(/\/sessions\/s1\/transcribe$/);
+    expect(body.get("question_id")).toBe("q1");
+    expect((body.get("audio") as File).name).toBe("answer.ogg");
+    expect(headerOf(calls[0], "Content-Type")).toBeNull();
+  });
+
+  it("asks for features without a token: the answer is the same for everyone", async () => {
+    serve(() => json({ voice_answers: false, voice_max_seconds: 180 }));
+    await expect(getFeatures()).resolves.toEqual({ voice_answers: false, voice_max_seconds: 180 });
+    expect(headerOf(calls[0], "Authorization")).toBeNull();
   });
 
   it("downloads the PDF as a Blob, from the recruiter route when asked", async () => {

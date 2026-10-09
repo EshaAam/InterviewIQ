@@ -19,16 +19,19 @@ import {
   ApiError,
   describeError,
   finishSession,
+  getFeatures,
   getSession,
   nextQuestion,
   startSession,
   submitAnswer,
+  type Features,
   type Question,
   type Session,
   type SessionState,
 } from "@/lib/api";
 import { isAbort, pollUntil, PollTimeout, WORKER_WAIT_MS } from "@/lib/poll";
 import { EASE, FadeIn } from "@/components/motion";
+import { VoiceRecorder } from "@/components/voice-recorder";
 import {
   Button,
   buttonClass,
@@ -115,12 +118,21 @@ export default function InterviewSessionPage({
   const [confirmFinish, setConfirmFinish] = useState(false);
   // Bumped by "Keep waiting" to restart a wait that gave up.
   const [waitRound, setWaitRound] = useState(0);
+  // Optional server capabilities. Voice stays hidden until the server says yes,
+  // and a failed lookup simply means "no voice" — never an error on this page.
+  const [features, setFeatures] = useState<Features | null>(null);
 
   // Answer telemetry — the backend stores these alongside the answer. All
   // three are reset in loadQuestion, so their initial values are never read.
   const startedAt = useRef(0);
   const pasteEvents = useRef(0);
   const keystrokes = useRef(0);
+
+  useEffect(() => {
+    getFeatures()
+      .then(setFeatures)
+      .catch(() => setFeatures(null));
+  }, []);
 
   const countdown = useCountdown(session?.expires_at ?? null);
   const phase = session ? waitPhaseOf(session, countdown?.passed ?? false) : null;
@@ -504,6 +516,23 @@ export default function InterviewSessionPage({
                   <label htmlFor="answer" className="font-semibold">
                     Your answer
                   </label>
+                  {features?.voice_answers && (
+                    <VoiceRecorder
+                      key={question.id}
+                      sessionId={sessionId}
+                      questionId={question.id}
+                      maxSeconds={features.voice_max_seconds}
+                      disabled={busy}
+                      // Appended, not replaced: an answer can be several recordings,
+                      // or typing then speaking. Not counted as keystrokes — the
+                      // server measures what was dictated.
+                      onTranscript={(text) =>
+                        setAnswer((current) =>
+                          current.trim() ? `${current.trimEnd()} ${text}` : text,
+                        )
+                      }
+                    />
+                  )}
                   <textarea
                     id="answer"
                     value={answer}

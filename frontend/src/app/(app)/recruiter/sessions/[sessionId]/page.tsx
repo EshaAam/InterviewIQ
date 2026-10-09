@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import { AnimatePresence } from "motion/react";
-import { CircleCheck, ClipboardPaste, Clock, Flag, Gauge, Keyboard, Users } from "lucide-react";
+import { CircleCheck, ClipboardPaste, Clock, Flag, Gauge, Keyboard, Mic, Users } from "lucide-react";
 import {
   describeError,
   getRecruiterSession,
@@ -315,6 +315,15 @@ function AnswerBlock({
           <Keyboard aria-hidden="true" className="size-3.5" />
           {answer.keystroke_count ?? "—"} keystrokes
         </span>
+        {answer.dictated_chars > 0 && (
+          // Measured by the server against its own transcripts, so the typing
+          // signals already discount it.
+          <span className="flex items-center gap-1.5">
+            <Mic aria-hidden="true" className="size-3.5" />
+            {answer.dictated_chars.toLocaleString()} of {answer.text.length.toLocaleString()}{" "}
+            chars spoken
+          </span>
+        )}
       </div>
 
       {answer.integrity.length > 0 && (

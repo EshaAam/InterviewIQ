@@ -191,6 +191,8 @@ export type AnswerDetail = {
   paste_events: number;
   keystroke_count: number | null;
   evaluation: EvaluationDetail | null;
+  /** Characters the server matched to this question's voice transcripts. */
+  dictated_chars: number;
   integrity: IntegritySignal[];
 };
 
@@ -461,6 +463,41 @@ export function submitAnswer(
     body: JSON.stringify(body),
     headers: { "Idempotency-Key": idempotencyKey },
   });
+}
+
+// --- Voice answers ---
+
+/** Optional capabilities the server offers; the UI hides what it lacks. */
+export type Features = { voice_answers: boolean; voice_max_seconds: number };
+
+/** A draft for the candidate to check and edit — not yet an answer. */
+export type Transcript = { text: string; duration_seconds: number; language: string };
+
+export function getFeatures(): Promise<Features> {
+  return apiFetch<Features>("/features", { skipAuth: true });
+}
+
+/**
+ * Speech-to-text for one recording. The result goes into the answer box for
+ * the candidate to correct; it is submitted through `submitAnswer` like any
+ * typed answer, so it is graded by the same pipeline.
+ */
+export function transcribeAnswer(
+  sessionId: string,
+  questionId: string,
+  audio: Blob,
+): Promise<Transcript> {
+  const body = new FormData();
+  body.append("question_id", questionId);
+  body.append("audio", audio, audioFilename(audio.type));
+  return apiFetch<Transcript>(`/sessions/${sessionId}/transcribe`, { method: "POST", body });
+}
+
+function audioFilename(mime: string): string {
+  if (mime.includes("ogg")) return "answer.ogg";
+  if (mime.includes("mp4") || mime.includes("aac")) return "answer.m4a";
+  if (mime.includes("wav")) return "answer.wav";
+  return "answer.webm";
 }
 
 export function finishSession(sessionId: string): Promise<Session> {
