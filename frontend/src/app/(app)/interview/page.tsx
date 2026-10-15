@@ -49,6 +49,9 @@ import {
  */
 type Stage = "compose" | "parsing" | "slow" | "parsed" | "creating";
 
+/** How long "Creating…" may wait on a client navigation before a full page load. */
+const NAVIGATION_FALLBACK_MS = 6000;
+
 export default function MyInterviewsPage() {
   return (
     <Shell>
@@ -400,7 +403,17 @@ function NewInterview() {
     setStage("creating");
     try {
       const session = await createSession(resume.id, jobDescription);
-      router.push(`/interview/${session.id}`);
+      const target = `/interview/${session.id}`;
+      router.push(target);
+      // A client-side navigation once stalled silently here: the session was
+      // ready in five seconds, but the tab never requested the next page and sat
+      // on "Creating…". If we are still here after a few seconds, load the page
+      // the ordinary way. A no-op when the navigation already happened.
+      window.setTimeout(() => {
+        // A full load is the point: it is the fallback for a stalled router.push.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+        if (window.location.pathname !== target) window.location.assign(target);
+      }, NAVIGATION_FALLBACK_MS);
     } catch (err) {
       setError(describeError(err, "Could not create the interview"));
       setStage("parsed");
