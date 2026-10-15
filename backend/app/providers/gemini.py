@@ -9,6 +9,15 @@ rotates: each call round-robins to the next healthy key, and a key that returns
 a 429 is benched for a cooldown window. When every key is benched we surface a
 transient error and let the retry/breaker wrappers take over.
 
+Overload is per *model*, not per key: when Google sheds load on one model
+(503 "high demand"), every key gets the same answer, sometimes for hours, while
+a neighbouring model answers in two seconds. So completions walk a fallback
+chain — the configured model, then `GEMINI_FALLBACK_MODELS` in order — and a
+model that just answered 503 is skipped for a short cooldown, so each call does
+not pay for a doomed request first. A retired model (404) is skipped too.
+Whichever model answered is published in `answered_by`, so the ledger records
+the model that was actually billed.
+
 The SDK is synchronous, so calls run in a worker thread to stay async-friendly.
 """
 
@@ -16,7 +25,8 @@ from __future__ import annotations
 
 import asyncio
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import TypeVar
 
@@ -32,6 +42,20 @@ from app.providers.base import (
 )
 
 T = TypeVar("T", bound=BaseModel)
+
+#: The model that produced the last completion in this context — the fallback
+#: when the primary was overloaded. A ContextVar, not an attribute: one provider
+#: serves many concurrent calls. Read by the metering code; empty means "the
+#: configured model".
+answered_by: ContextVar[str] = ContextVar("gemini_answered_by", default="")
+
+
+class LLMModelUnavailable(LLMError):
+    """The model does not exist for this key (404) — retired or misspelled.
+
+    Terminal for that model, so it is skipped in the fallback chain; if it is
+    the last model left, the call fails like any other permanent error.
+    """
 
 
 @dataclass
@@ -84,8 +108,10 @@ class GeminiProvider:
         *,
         keys: list[str],
         model: str,
+        fallback_models: Sequence[str] = (),
         embed_model: str = "gemini-embedding-001",
         cooldown: float = 60.0,
+        overload_cooldown: float = 60.0,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         if not keys:
@@ -97,8 +123,13 @@ class GeminiProvider:
         self._clients: dict[str, object] = {}
         self.name = model
         self.model = model
+        # Primary first, then fallbacks in order, without repeats.
+        self.models = list(dict.fromkeys([model, *(m for m in fallback_models if m)]))
         self.embed_model = embed_model
         self.last_usage = Usage()
+        self._clock = clock
+        self._overload_cooldown = overload_cooldown
+        self._overloaded_until: dict[str, float] = {}
 
     def _client(self, key: str):
         if key not in self._clients:
@@ -127,14 +158,23 @@ class GeminiProvider:
             f"all {len(self._pool)} gemini keys rate-limited: {last_rate_limit}"
         )
 
-    async def complete(
-        self, prompt: str, schema: type[T], *, temperature: float = 0.0
-    ) -> T:
+    def _chain(self) -> list[str]:
+        """Models to try, in order: rested ones first, recently-overloaded last.
+
+        A model in its overload cooldown is not dropped — if every model is
+        overloaded, trying them all again is still the right last resort.
+        """
+        now = self._clock()
+        rested = [m for m in self.models if self._overloaded_until.get(m, 0.0) <= now]
+        tired = [m for m in self.models if m not in rested]
+        return rested + tired
+
+    async def _generate(self, model: str, prompt: str, schema: type[T], temperature: float):
         from google.genai import types
 
         def call(client):
             return client.models.generate_content(
-                model=self.model,
+                model=model,
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
@@ -143,7 +183,30 @@ class GeminiProvider:
                 ),
             )
 
-        response = await self._execute(call)
+        return await self._execute(call)
+
+    async def complete(
+        self, prompt: str, schema: type[T], *, temperature: float = 0.0
+    ) -> T:
+        response = None
+        last: LLMError | None = None
+        for model in self._chain():
+            try:
+                response = await self._generate(model, prompt, schema, temperature)
+            except LLMOverloaded as exc:
+                # Shedding load on this model; its neighbours usually are not.
+                self._overloaded_until[model] = self._clock() + self._overload_cooldown
+                last = exc
+                continue
+            except LLMModelUnavailable as exc:
+                last = exc
+                continue
+            self._overloaded_until.pop(model, None)
+            answered_by.set(model)
+            break
+        if response is None:
+            assert last is not None
+            raise last
 
         usage = getattr(response, "usage_metadata", None)
         self.last_usage = Usage(
@@ -172,6 +235,8 @@ class GeminiProvider:
         code = getattr(exc, "code", None)
         if code == 503:
             return LLMOverloaded(f"gemini overloaded (503): {exc}")
+        if code == 404:
+            return LLMModelUnavailable(f"gemini model unavailable (404): {exc}")
         if isinstance(code, int) and code >= 500:
             return LLMTransientError(f"gemini transient error {code}: {exc}")
         return LLMError(f"gemini error {code}: {exc}")

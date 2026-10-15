@@ -70,8 +70,10 @@ def get_provider() -> LLMProvider:
             concrete = GeminiProvider(
                 keys=keys,
                 model=settings.GEMINI_MODEL,
+                fallback_models=settings.gemini_fallback_models,
                 embed_model=settings.GEMINI_EMBED_MODEL,
                 cooldown=settings.GEMINI_KEY_COOLDOWN_SECONDS,
+                overload_cooldown=settings.GEMINI_OVERLOAD_COOLDOWN_SECONDS,
             )
             return wrap_with_resilience(concrete, prompt_version=PROMPT_VERSION)
         case "ollama":  # pragma: no cover - optional, Phase 3 stretch

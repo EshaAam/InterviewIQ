@@ -60,6 +60,13 @@ class Settings(BaseSettings):
     GEMINI_EMBED_MODEL: str = "gemini-embedding-001"
     # How long a key is benched after it returns a rate-limit (429).
     GEMINI_KEY_COOLDOWN_SECONDS: float = 60.0
+    # Tried in order when a model answers 503 "high demand". Overload is per
+    # model, not per key — one model can shed load for hours while another
+    # answers in two seconds — and free-tier quota is per model too.
+    # Comma-separated; empty means no fallback.
+    GEMINI_FALLBACK_MODELS: str = ""
+    # How long an overloaded model is tried last rather than first.
+    GEMINI_OVERLOAD_COOLDOWN_SECONDS: float = 60.0
 
     # --- Embeddings (RAG Phase 1) ---
     # Separate from LLM_PROVIDER: the knowledge base is embedded once and every
@@ -220,6 +227,11 @@ class Settings(BaseSettings):
     @property
     def cors_origins(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
+    @computed_field
+    @property
+    def gemini_fallback_models(self) -> list[str]:
+        return [m.strip() for m in self.GEMINI_FALLBACK_MODELS.split(",") if m.strip()]
 
     @computed_field
     @property
