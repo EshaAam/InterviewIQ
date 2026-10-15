@@ -128,8 +128,13 @@ async def _complete_metered(
     session_id: uuid.UUID | None,
     user_id: uuid.UUID | None,
     temperature: float = 0.0,
+    models_used: list[str] | None = None,
 ):
     """provider.complete + a ledger row for every outcome.
+
+    `models_used`, when given, collects the model that answered — a fallback
+    when the configured one was overloaded — so the caller can store the model
+    that actually wrote its questions or grade, not the one it asked for.
 
     What a row charges depends on what actually happened:
     ok → estimated tokens; error → the prompt (it was sent); circuit open →
@@ -157,6 +162,8 @@ async def _complete_metered(
             )
             raise
 
+        if models_used is not None:
+            models_used.append(answered_by.get() or provider.name)
         if served_from_cache.get():
             await _meter(
                 db, provider, prompt_tokens=0, completion_tokens=0, status="cached", **meter
@@ -318,10 +325,13 @@ async def generate_questions(
         else:
             prompt = build_grounded_prompt(resume_text, context)
 
+        used: list[str] = []
         result: QuestionGenerationResult = await _complete_metered(
             db, provider, prompt, QuestionGenerationResult,
-            session_id=session_id, user_id=session.user_id,
+            session_id=session_id, user_id=session.user_id, models_used=used,
         )
+        # Reproducibility: the model that actually wrote these questions.
+        session.model_name = used[-1] if used else provider.name
 
         # Rebuild questions so a retry doesn't collide on (session, ordinal).
         await db.execute(delete(Question).where(Question.session_id == session_id))
@@ -415,6 +425,8 @@ async def evaluate_answer(
         raise ValueError(f"question for answer {answer_id} not found")
     session = await db.get(InterviewSession, question.session_id)
 
+    used: list[str] = []
+
     async def complete(prompt: str, temperature: float) -> AnswerEvaluationResult:
         return await _complete_metered(
             db,
@@ -424,6 +436,7 @@ async def evaluate_answer(
             session_id=question.session_id,
             user_id=session.user_id if session else None,
             temperature=temperature,
+            models_used=used,
         )
 
     outcome = await grade(
@@ -446,7 +459,8 @@ async def evaluate_answer(
             final_score=outcome.final_score,
             confidence=outcome.confidence,
             needs_review=outcome.needs_review,
-            model_name=provider.name,
+            # The temperature-0 run is the grade of record; name its model.
+            model_name=used[0] if used else provider.name,
             temperature=0.0,
             prompt_version=PROMPT_VERSION,
             run_count=outcome.run_count,
