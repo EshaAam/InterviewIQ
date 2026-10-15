@@ -55,6 +55,7 @@ from app.providers.base import (
     LLMTransientError,
 )
 from app.providers.cache import served_from_cache
+from app.providers.gemini import answered_by
 from app.schemas.pipeline import (
     QUESTIONS_PER_INTERVIEW,
     AnswerEvaluationResult,
@@ -102,7 +103,9 @@ async def _meter(
             session_id=session_id,
             user_id=user_id,
             provider=provider.name,
-            model=getattr(provider, "model", provider.name),
+            # The model that actually answered — a fallback when the configured
+            # one was overloaded — since that is the one that was billed.
+            model=answered_by.get() or getattr(provider, "model", provider.name),
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             cost_estimate=round(cost, 8),
@@ -137,37 +140,40 @@ async def _complete_metered(
     meter = {"session_id": session_id, "user_id": user_id, "started": started}
 
     token = served_from_cache.set(False)
+    model_token = answered_by.set("")
     try:
-        result = await provider.complete(prompt, schema, temperature=temperature)
-        cached = served_from_cache.get()
-    except LLMCircuitOpen:
-        await _meter(
-            db, provider, prompt_tokens=0, completion_tokens=0, status="circuit_open", **meter
-        )
-        raise
-    except LLMError:
-        await _meter(
-            db, provider, prompt_tokens=prompt_tokens, completion_tokens=0,
-            status="error", **meter,
-        )
-        raise
+        try:
+            result = await provider.complete(prompt, schema, temperature=temperature)
+        except LLMCircuitOpen:
+            await _meter(
+                db, provider, prompt_tokens=0, completion_tokens=0, status="circuit_open",
+                **meter,
+            )
+            raise
+        except LLMError:
+            await _meter(
+                db, provider, prompt_tokens=prompt_tokens, completion_tokens=0,
+                status="error", **meter,
+            )
+            raise
+
+        if served_from_cache.get():
+            await _meter(
+                db, provider, prompt_tokens=0, completion_tokens=0, status="cached", **meter
+            )
+        else:
+            await _meter(
+                db,
+                provider,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=_estimate_tokens(result.model_dump_json()),
+                status="ok",
+                **meter,
+            )
+        return result
     finally:
         served_from_cache.reset(token)
-
-    if cached:
-        await _meter(
-            db, provider, prompt_tokens=0, completion_tokens=0, status="cached", **meter
-        )
-    else:
-        await _meter(
-            db,
-            provider,
-            prompt_tokens=prompt_tokens,
-            completion_tokens=_estimate_tokens(result.model_dump_json()),
-            status="ok",
-            **meter,
-        )
-    return result
+        answered_by.reset(model_token)
 
 
 # --- stage 1: parse resume -> skills ---
