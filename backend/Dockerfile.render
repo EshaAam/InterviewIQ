@@ -1,0 +1,64 @@
+# syntax=docker/dockerfile:1
+#
+# The whole backend in one container, for a free single-container host
+# (Render's free web service: 512 MB, no background workers). It runs what
+# docker-compose.prod.yml spreads over five services: a private Redis, the
+# migration, the Celery worker with beat embedded, and the API. See
+# scripts/render-start.sh.
+#
+# Differences from the `prod` target in ./Dockerfile:
+#   - no `voice` extra: Whisper alone would take most of the 512 MB
+#   - redis-server installed, listening on localhost only
+#
+#   docker build -f Dockerfile.render -t interviewiq-render .
+
+FROM ghcr.io/astral-sh/uv:0.10.6 AS uv
+
+# ---------------------------------------------------------------------------
+FROM python:3.12-slim AS deps
+
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=never
+
+COPY --from=uv /uv /usr/local/bin/uv
+WORKDIR /app
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project --extra embed
+
+ENV PATH="/app/.venv/bin:$PATH"
+# Baked in so a worker never stalls mid-job downloading ~130 MB.
+RUN python -c "from fastembed import TextEmbedding; TextEmbedding(model_name='BAAI/bge-small-en-v1.5', cache_dir='/opt/models')"
+
+# ---------------------------------------------------------------------------
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/app/.venv/bin:$PATH"
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends redis-server \
+ && rm -rf /var/lib/apt/lists/* \
+ && groupadd --system --gid 10001 app \
+ && useradd --system --uid 10001 --gid app --home-dir /app --no-create-home app \
+ && mkdir -p /data/uploads \
+ && chown app:app /data/uploads
+
+WORKDIR /app
+COPY --from=deps /app/.venv /app/.venv
+COPY --from=deps /opt/models /opt/models
+COPY app ./app
+COPY migrations ./migrations
+COPY alembic.ini ./
+COPY scripts/render-start.sh ./render-start.sh
+
+USER app
+ENV UPLOAD_DIR=/data/uploads \
+    EMBEDDING_CACHE_DIR=/opt/models \
+    REDIS_URL=redis://127.0.0.1:6379/0 \
+    VOICE_ENABLED=false
+
+# Render sets PORT (10000 by default); the start script honours it.
+EXPOSE 10000
+CMD ["bash", "./render-start.sh"]

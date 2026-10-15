@@ -1,0 +1,56 @@
+# Render Blueprint: the backend as one free web service. The database is Neon
+# and the frontend is Vercel.
+#
+# `sync: false` values are asked for once, in the dashboard, when the
+# Blueprint is first applied. They never live in this file.
+services:
+  - type: web
+    name: interviewiq-api
+    runtime: docker
+    plan: free
+    # Fixed at creation. Pick the region nearest your Neon project: every
+    # query crosses this gap, several times per request.
+    region: singapore
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile.render
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      # The Vercel URL, e.g. https://interviewiq.vercel.app (no trailing slash).
+      - key: CORS_ORIGINS
+        sync: false
+
+      # Neon: the *direct* host (without "-pooler"). The pooled endpoint is
+      # PgBouncer in transaction mode, which breaks asyncpg's prepared statements.
+      - key: POSTGRES_HOST
+        sync: false
+      - key: POSTGRES_USER
+        sync: false
+      - key: POSTGRES_PASSWORD
+        sync: false
+      - key: POSTGRES_DB
+        sync: false
+      - key: POSTGRES_SSLMODE
+        value: require
+
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: GEMINI_API_KEYS
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.6-flash
+      - key: GEMINI_FALLBACK_MODELS
+        value: gemini-3.5-flash,gemini-3.1-flash-lite
+
+      - key: EMBEDDING_PROVIDER
+        value: local
+      # Calibrated for the local embedder; see .env.example.
+      - key: EVAL_COVERAGE_THRESHOLD
+        value: "0.65"
+      # 0.1 CPU: more threads only add contention and memory.
+      - key: EMBEDDING_THREADS
+        value: "1"

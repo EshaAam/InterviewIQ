@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = "interviewiq"
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
+    # Empty for the compose stack's own Postgres. Hosted Postgres (Neon,
+    # Supabase) refuses plain connections: set `require`.
+    POSTGRES_SSLMODE: str = ""
 
     # --- Redis / Celery ---
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -258,19 +261,22 @@ class Settings(BaseSettings):
     @property
     def DATABASE_URL(self) -> str:
         """Sync DSN — used by Alembic and the readiness probe."""
-        return (
+        url = (
             f"postgresql+psycopg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
+        return f"{url}?sslmode={self.POSTGRES_SSLMODE}" if self.POSTGRES_SSLMODE else url
 
     @computed_field
     @property
     def DATABASE_URL_ASYNC(self) -> str:
         """Async DSN — used by the application's request path."""
-        return (
+        url = (
             f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
+        # asyncpg spells it `ssl`, not libpq's `sslmode`; the values are the same.
+        return f"{url}?ssl={self.POSTGRES_SSLMODE}" if self.POSTGRES_SSLMODE else url
 
 
 @lru_cache
