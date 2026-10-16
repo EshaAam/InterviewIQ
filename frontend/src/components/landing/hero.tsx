@@ -225,31 +225,24 @@ function HeroVisual({
 
       {/* Previews of what comes next. Decorative, and too crowded on a phone. */}
       <div aria-hidden="true" className="hidden sm:block">
-        <FloatCard sx={sx} sy={sy} depth={34} bob={7} delay={0.9} className="-top-31 -left-16 w-59">
-          <SkillsPreview />
-        </FloatCard>
-        <FloatCard
-          sx={sx}
-          sy={sy}
-          depth={-26}
-          bob={9}
-          delay={1.1}
-          className="-right-16 -bottom-16 w-53.5"
-        >
-          <ScorePreview />
-        </FloatCard>
-        <FloatCard sx={sx} sy={sy} depth={18} bob={6} delay={1.3} className="-top-12 -right-6">
-          <span className="flex items-center gap-2 text-[13px] font-medium whitespace-nowrap text-white">
-            <PulseDot className="bg-glow" />
-            Question 3 of 8 · 12 min left
-          </span>
-        </FloatCard>
+        <Floater sx={sx} sy={sy} depth={30} bob={7} delay={0.9} className="-top-44 -left-24">
+          <ThoughtCloud />
+        </Floater>
+        <Floater sx={sx} sy={sy} depth={16} bob={5} delay={1.25} className="-top-12 -right-5">
+          <QuestionPebble />
+        </Floater>
+        <Floater sx={sx} sy={sy} depth={-24} bob={9} delay={1.1} className="-right-20 -bottom-30">
+          <ScoreMedallion />
+        </Floater>
+        <Sparkle className="-top-40 left-62 size-4" delay={0.2} />
+        <Sparkle className="right-34 -bottom-12 size-3" delay={1.4} />
       </div>
     </motion.div>
   );
 }
 
-function FloatCard({
+/** Parallax with the pointer plus a slow idle float; the child brings its own shape. */
+function Floater({
   sx,
   sy,
   depth,
@@ -273,15 +266,14 @@ function FloatCard({
   return (
     <motion.div
       style={{ x, y }}
-      initial={{ opacity: 0, scale: 0.85 }}
+      initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.8, ease: EASE, delay }}
+      transition={{ type: "spring", stiffness: 140, damping: 16, delay }}
       className={`absolute z-10 ${className}`}
     >
       <motion.div
         animate={{ y: [0, -bob, 0] }}
         transition={{ duration: 5 + bob / 3, repeat: Infinity, ease: "easeInOut", delay }}
-        className="rounded-2xl border border-white/15 bg-[#0d3a41]/70 p-4 shadow-[0_28px_56px_-24px_rgba(0,0,0,0.7)] backdrop-blur-xl"
       >
         {children}
       </motion.div>
@@ -289,78 +281,192 @@ function FloatCard({
   );
 }
 
+// A cloud drawn from five round bumps over a flat base, in a 280×160 box. The
+// same path clips the frosted fill and draws the outline, so the two line up.
+const CLOUD =
+  "M 50 150 A 38 38 0 0 1 30 82 A 44 44 0 0 1 98 42 A 52 52 0 0 1 188 36 " +
+  "A 42 42 0 0 1 252 86 A 36 36 0 0 1 232 150 Z";
+
 const PREVIEW_SKILLS = [
   { name: "Python", value: 0.94 },
   { name: "FastAPI", value: 0.86 },
   { name: "PostgreSQL", value: 0.72 },
 ];
 
-function SkillsPreview() {
+/** "Skills we found" as a thought: a cloud, with bubbles trailing to the card. */
+function ThoughtCloud() {
   return (
-    <div className="flex flex-col gap-2.5">
-      <span className="text-[11px] font-semibold tracking-[0.6px] text-ink-on-dark uppercase">
-        Skills we found
-      </span>
-      {PREVIEW_SKILLS.map((skill, i) => (
-        <div key={skill.name} className="flex items-center gap-2.5">
-          <span className="w-18.5 text-[13px] text-white">{skill.name}</span>
-          <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
-            <motion.span
-              className="block h-full rounded-full bg-linear-to-r from-accent to-glow"
-              initial={{ width: 0 }}
-              animate={{ width: `${skill.value * 100}%` }}
-              transition={{ duration: 1.1, ease: EASE, delay: 1.3 + i * 0.12 }}
-            />
+    <div className="relative h-52 w-70">
+      {/* A soft shadow under the cloud, since a clipped element can't cast one. */}
+      <span className="absolute inset-x-8 top-24 h-20 rounded-full bg-black/40 blur-2xl" />
+      <motion.div
+        animate={{ scale: [1, 1.025, 1] }}
+        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute inset-x-0 top-0 h-40"
+      >
+        <div
+          className="absolute inset-0 bg-[#0d3a41]/75 backdrop-blur-xl"
+          style={{ clipPath: `path("${CLOUD}")` }}
+        />
+        <svg viewBox="0 0 280 160" className="absolute inset-0 size-full overflow-visible">
+          <defs>
+            <linearGradient id="cloud-sheen" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="rgba(159,240,230,0.16)" />
+              <stop offset="100%" stopColor="rgba(159,240,230,0.02)" />
+            </linearGradient>
+          </defs>
+          <path
+            d={CLOUD}
+            fill="url(#cloud-sheen)"
+            stroke="rgba(255,255,255,0.2)"
+            strokeWidth="1.2"
+          />
+        </svg>
+        <div className="absolute inset-x-6 top-13 flex flex-col items-center gap-2">
+          <span className="text-[10px] font-semibold tracking-[0.14em] text-[#9ff0e6] uppercase">
+            Skills we found
           </span>
-          <span className="tabular w-8 text-right text-xs text-ink-on-dark">
-            {skill.value.toFixed(2)}
-          </span>
+          <div className="flex flex-wrap justify-center gap-1">
+            {PREVIEW_SKILLS.map((skill, i) => (
+              <motion.span
+                key={skill.name}
+                initial={{ opacity: 0, scale: 0.6, y: 6 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{
+                  type: "spring",
+                  stiffness: 380,
+                  damping: 18,
+                  delay: 1.4 + i * 0.18,
+                }}
+                className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-medium text-white ring-1 ring-white/10"
+              >
+                <span
+                  className="size-1.5 rounded-full bg-glow"
+                  style={{ opacity: 0.4 + skill.value * 0.6 }}
+                />
+                {skill.name}
+                <span className="tabular text-ink-on-dark">{skill.value.toFixed(2)}</span>
+              </motion.span>
+            ))}
+          </div>
         </div>
+      </motion.div>
+
+      {/* The thought trail, drifting down toward the upload card. */}
+      {[
+        { className: "left-55 top-40 size-4.5", delay: 0 },
+        { className: "left-62 top-46 size-2.5", delay: 0.35 },
+      ].map((bubble) => (
+        <motion.span
+          key={bubble.className}
+          animate={{ scale: [1, 1.18, 1], opacity: [0.75, 1, 0.75] }}
+          transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut", delay: bubble.delay }}
+          className={`absolute rounded-full border border-white/20 bg-[#0d3a41]/80 backdrop-blur-md ${bubble.className}`}
+        />
       ))}
     </div>
   );
 }
 
-function ScorePreview() {
-  const size = 58;
-  const stroke = 6;
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
+/** The live question, as a pebble whose outline slowly breathes. */
+function QuestionPebble() {
   return (
-    <div className="flex items-center gap-3.5">
-      <svg width={size} height={size} className="-rotate-90 shrink-0">
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          stroke="rgba(255,255,255,0.12)"
-          strokeWidth={stroke}
+    <motion.div
+      animate={{
+        borderRadius: [
+          "46% 54% 52% 48% / 58% 46% 54% 42%",
+          "56% 44% 46% 54% / 44% 58% 42% 56%",
+          "46% 54% 52% 48% / 58% 46% 54% 42%",
+        ],
+      }}
+      transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+      className="border border-white/18 bg-[#0d3a41]/75 px-5 py-3.5 shadow-[0_20px_40px_-20px_rgba(0,0,0,0.7)] backdrop-blur-xl"
+    >
+      <span className="flex items-center gap-2 text-[13px] font-medium whitespace-nowrap text-white">
+        <PulseDot className="bg-glow" />
+        Question 3 of 8 · 12 min left
+      </span>
+    </motion.div>
+  );
+}
+
+/** The score as a round medal: a lit rim that slowly turns, the arc, a ribbon. */
+function ScoreMedallion() {
+  const size = 132;
+  const stroke = 7;
+  const r = (size - stroke) / 2 - 10;
+  const c = 2 * Math.PI * r;
+  const rim =
+    "radial-gradient(farthest-side, transparent calc(100% - 2px), black calc(100% - 2px))";
+  return (
+    <div className="relative flex flex-col items-center">
+      <div className="relative" style={{ width: size, height: size }}>
+        {/* A comet of light running round the rim. */}
+        <motion.span
+          animate={{ rotate: 360 }}
+          transition={{ duration: 9, repeat: Infinity, ease: "linear" }}
+          className="absolute -inset-1 rounded-full"
+          style={{
+            background:
+              "conic-gradient(from 0deg, transparent 0deg, rgba(159,240,230,0.9) 70deg, transparent 140deg)",
+            mask: rim,
+            WebkitMask: rim,
+          }}
         />
-        <motion.circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          stroke="var(--color-glow)"
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={c}
-          initial={{ strokeDashoffset: c }}
-          animate={{ strokeDashoffset: c * (1 - 0.82) }}
-          transition={{ duration: 1.4, ease: EASE, delay: 1.5 }}
-        />
-      </svg>
-      <div className="flex flex-col gap-1">
-        <span className="tabular font-display text-[26px] leading-none font-bold text-white">
-          82<span className="text-sm font-semibold text-ink-on-dark">/100</span>
-        </span>
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-[#9ff0e6]">
-          <Check aria-hidden="true" className="size-3.5" />
-          Graders agree
-        </span>
+        <div className="absolute inset-0 rounded-full border border-white/15 bg-[#0d3a41]/80 shadow-[0_28px_56px_-24px_rgba(0,0,0,0.75)] backdrop-blur-xl" />
+        <svg width={size} height={size} className="absolute inset-0 -rotate-90">
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            fill="none"
+            stroke="rgba(255,255,255,0.1)"
+            strokeWidth={stroke}
+          />
+          <motion.circle
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            fill="none"
+            stroke="var(--color-glow)"
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={c}
+            initial={{ strokeDashoffset: c }}
+            animate={{ strokeDashoffset: c * (1 - 0.82) }}
+            transition={{ duration: 1.4, ease: EASE, delay: 1.5 }}
+            style={{ filter: "drop-shadow(0 0 6px rgba(43,179,166,0.6))" }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="tabular font-display text-[32px] leading-none font-bold text-white">
+            82
+          </span>
+          <span className="text-[11px] text-ink-on-dark">out of 100</span>
+        </div>
       </div>
+      <span className="relative -mt-3 inline-flex items-center gap-1 rounded-full bg-glow px-3 py-1 text-xs font-semibold text-brand shadow-[0_8px_20px_-8px_rgba(43,179,166,0.9)]">
+        <Check aria-hidden="true" className="size-3.5" />
+        Graders agree
+      </span>
     </div>
+  );
+}
+
+/** A four-pointed twinkle. */
+function Sparkle({ className, delay }: { className: string; delay: number }) {
+  return (
+    <motion.svg
+      viewBox="0 0 24 24"
+      animate={{ scale: [0.6, 1, 0.6], opacity: [0.35, 1, 0.35], rotate: [0, 45, 0] }}
+      transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut", delay }}
+      className={`absolute text-[#9ff0e6] ${className}`}
+    >
+      <path
+        d="M12 0c.6 6.6 5.4 11.4 12 12-6.6.6-11.4 5.4-12 12-.6-6.6-5.4-11.4-12-12C6.6 11.4 11.4 6.6 12 0Z"
+        fill="currentColor"
+      />
+    </motion.svg>
   );
 }
 

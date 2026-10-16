@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowLeft, FileCheck2, FileSearch, Scale, UserCheck } from "lucide-react";
 import { ApiError, login, me, register } from "@/lib/api";
-import { peekPendingResume } from "@/lib/pending-resume";
+import { usePendingResume } from "@/lib/pending-resume";
 import { destinationFor, useUser } from "@/lib/use-user";
 import { Logo } from "@/components/brand";
 import { EASE, Stagger, StaggerItem } from "@/components/motion";
@@ -47,9 +47,7 @@ export default function LoginPage() {
     if (user) router.replace(destinationFor(user, nextParam()));
   }, [user, router]);
   // A resume picked on the landing page, waiting for the account to land in.
-  // Module memory is empty on the server and on a fresh load alike, so this
-  // can't mismatch on hydration.
-  const [pendingFile] = useState(() => peekPendingResume());
+  const pendingFile = usePendingResume();
   const [mode, setMode] = useState<"signin" | "register">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

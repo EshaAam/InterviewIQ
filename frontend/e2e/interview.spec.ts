@@ -77,7 +77,8 @@ test("a candidate takes a whole interview and downloads the report", async ({ pa
 test("signing in works from the keyboard alone", async ({ page }) => {
   const email = await signUp(page);
   // Sign out, then back in without touching the mouse.
-  await page.getByRole("button", { name: /^Sign out/ }).click();
+  await page.getByRole("button", { name: /^Account menu/ }).click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/$/); // back to the public landing page
   await page.getByRole("link", { name: "Sign in" }).first().click();
   await expect(page).toHaveURL(/\/login$/);

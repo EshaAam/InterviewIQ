@@ -291,7 +291,7 @@ export default function InterviewSessionPage({
         </Shell>
       );
     }
-    return <PageLoading width="medium" />;
+    return <PageLoading width="medium" hero={false} />;
   }
 
   if (session.state === "EVALUATING") {

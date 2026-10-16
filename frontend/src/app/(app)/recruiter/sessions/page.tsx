@@ -12,12 +12,12 @@ import {
   EmptyState,
   ErrorBanner,
   IntegrityBadge,
-  PageHeading,
   Shell,
   Skeleton,
   STATE_LABEL,
   StatusPill,
 } from "@/components/ui";
+import { PageHero } from "@/components/page-hero";
 
 // PARSING and GENERATING_QS are left out on purpose: the worker passes through
 // both inside one transaction, so no session is ever *seen* sitting in them.
@@ -67,102 +67,104 @@ export default function RecruiterSessionsPage() {
   const error = current?.error ?? null;
 
   return (
-    <Shell>
-      <div className="flex flex-col gap-6">
-        <PageHeading
-          title="Sessions"
-          subtitle="Every interview, newest first. Filter by the state a session is sitting in, and open one to see its answers."
-        />
-
-        <div role="group" aria-label="Filter by state" className="flex flex-wrap gap-2">
-          {FILTERS.map((option) => {
-            const active = filter === option;
-            return (
-              <button
-                key={option}
-                onClick={() => setFilter(option)}
-                aria-pressed={active}
-                className={`relative cursor-pointer rounded-full border px-3.5 py-1.5 text-xs font-semibold tracking-[0.02em] transition-colors duration-200 ${
-                  active
-                    ? "border-transparent text-ink-inv"
-                    : "border-line bg-surface text-ink-2 hover:border-accent-mid hover:text-ink"
-                }`}
-              >
-                {active && (
-                  <motion.span
-                    layoutId="state-filter"
-                    className="absolute inset-0 rounded-full bg-brand"
-                    transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                  />
-                )}
-                <span className="relative">
-                  {option === "All" ? "All" : STATE_LABEL[option]}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {error && <ErrorBanner message={error} />}
-
-        <Card className="overflow-hidden">
-          <div
-            className={`hidden border-b border-line bg-subtle px-6 py-3 text-[11px] font-semibold tracking-[0.06em] text-ink-3 uppercase ${COLUMNS}`}
-          >
-            <span>Session</span>
-            <span>Candidate</span>
-            <span>State</span>
-            <span>Created</span>
-            <span />
+    <>
+      <PageHero
+        eyebrow="Recruiter"
+        title="Sessions"
+        subtitle="Every interview, newest first. Filter by the state a session is sitting in, and open one to see its answers."
+      />
+      <Shell>
+        <div className="flex flex-col gap-6">
+          <div role="group" aria-label="Filter by state" className="flex flex-wrap gap-2">
+            {FILTERS.map((option) => {
+              const active = filter === option;
+              return (
+                <button
+                  key={option}
+                  onClick={() => setFilter(option)}
+                  aria-pressed={active}
+                  className={`relative cursor-pointer rounded-full border px-3.5 py-1.5 text-xs font-semibold tracking-[0.02em] transition-colors duration-200 ${
+                    active
+                      ? "border-transparent text-ink-inv"
+                      : "border-line bg-surface text-ink-2 hover:border-accent-mid hover:text-ink"
+                  }`}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="state-filter"
+                      className="absolute inset-0 rounded-full bg-brand"
+                      transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                    />
+                  )}
+                  <span className="relative">
+                    {option === "All" ? "All" : STATE_LABEL[option]}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
-          {rows === null && (
-            <div className="flex flex-col gap-2 p-4">
-              <span className="sr-only" role="status">
-                Loading sessions…
-              </span>
-              {[0, 1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-12 w-full" />
-              ))}
+          {error && <ErrorBanner message={error} />}
+
+          <Card className="overflow-hidden">
+            <div
+              className={`hidden border-b border-line bg-subtle px-6 py-3 text-[11px] font-semibold tracking-[0.06em] text-ink-3 uppercase ${COLUMNS}`}
+            >
+              <span>Session</span>
+              <span>Candidate</span>
+              <span>State</span>
+              <span>Created</span>
+              <span />
             </div>
-          )}
-          {rows?.length === 0 && !error && (
-            <div className="p-6">
-              <EmptyState icon={<Inbox aria-hidden="true" className="size-6" />} title="No sessions here">
-                Nothing is sitting in {filter === "All" ? "any state" : filter} right now.
-              </EmptyState>
-            </div>
-          )}
-          {rows && rows.length > 0 && (
-            <Stagger key={filter} className="divide-y divide-line-soft">
-              {rows.map((row) => (
-                <StaggerItem key={row.id}>
-                  {/* The whole row is the link: a table you click through should
-                      not make you aim for a small "open" word at the end. */}
-                  <Link
-                    href={`/recruiter/sessions/${row.id}`}
-                    className={`group flex flex-wrap items-center gap-x-4 gap-y-2 px-6 py-4 transition-colors duration-200 hover:bg-accent-soft ${COLUMNS}`}
-                  >
-                    <span className="tabular font-semibold text-ink">{sessionName(row.id)}</span>
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span className="truncate text-ink-2">{row.candidate_email}</span>
-                      {row.integrity_flag && <IntegrityBadge />}
-                    </span>
-                    <span>
-                      <StatusPill state={row.state} />
-                    </span>
-                    <span className="text-sm text-ink-3">{relativeTime(row.created_at)}</span>
-                    <ChevronRight
-                      aria-hidden="true"
-                      className="ml-auto size-4 text-accent transition-transform duration-200 group-hover:translate-x-1"
-                    />
-                  </Link>
-                </StaggerItem>
-              ))}
-            </Stagger>
-          )}
-        </Card>
-      </div>
-    </Shell>
+
+            {rows === null && (
+              <div className="flex flex-col gap-2 p-4">
+                <span className="sr-only" role="status">
+                  Loading sessions…
+                </span>
+                {[0, 1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))}
+              </div>
+            )}
+            {rows?.length === 0 && !error && (
+              <div className="p-6">
+                <EmptyState icon={<Inbox aria-hidden="true" className="size-6" />} title="No sessions here">
+                  Nothing is sitting in {filter === "All" ? "any state" : filter} right now.
+                </EmptyState>
+              </div>
+            )}
+            {rows && rows.length > 0 && (
+              <Stagger key={filter} className="divide-y divide-line-soft">
+                {rows.map((row) => (
+                  <StaggerItem key={row.id}>
+                    {/* The whole row is the link: a table you click through should
+                        not make you aim for a small "open" word at the end. */}
+                    <Link
+                      href={`/recruiter/sessions/${row.id}`}
+                      className={`group flex flex-wrap items-center gap-x-4 gap-y-2 px-6 py-4 transition-colors duration-200 hover:bg-accent-soft ${COLUMNS}`}
+                    >
+                      <span className="tabular font-semibold text-ink">{sessionName(row.id)}</span>
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="truncate text-ink-2">{row.candidate_email}</span>
+                        {row.integrity_flag && <IntegrityBadge />}
+                      </span>
+                      <span>
+                        <StatusPill state={row.state} />
+                      </span>
+                      <span className="text-sm text-ink-3">{relativeTime(row.created_at)}</span>
+                      <ChevronRight
+                        aria-hidden="true"
+                        className="ml-auto size-4 text-accent transition-transform duration-200 group-hover:translate-x-1"
+                      />
+                    </Link>
+                  </StaggerItem>
+                ))}
+              </Stagger>
+            )}
+          </Card>
+        </div>
+      </Shell>
+    </>
   );
 }

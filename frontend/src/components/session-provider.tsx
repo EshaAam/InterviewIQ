@@ -1,11 +1,13 @@
 "use client";
 
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { ShieldAlert } from "lucide-react";
 import { homeFor, useUser } from "@/lib/use-user";
 import { type User, type UserRole } from "@/lib/auth";
-import { TopNav } from "./top-nav";
+import { HeroSlot } from "./page-hero";
+import { SiteFooter } from "./site-footer";
+import { SiteNav } from "./site-nav";
 import { buttonClass, EmptyState, Shell, Spinner } from "./ui";
 
 const SignedInUser = createContext<User | null>(null);
@@ -21,10 +23,13 @@ export function useSignedInUser(): User {
 
 /**
  * Resolves the user once for the whole authenticated tree and renders the
- * nav. Role gating is not done here — that is `RequireRole`'s one job.
+ * same chrome as the landing page: floating nav, page, footer. Role gating is
+ * not done here — that is `RequireRole`'s one job.
  */
 export function SessionProvider({ children }: { children: ReactNode }) {
   const { user, loading } = useUser();
+  // Whether the current page opens with a dark `PageHero` under the nav.
+  const [hero, setHero] = useState(false);
 
   if (loading) {
     return (
@@ -38,8 +43,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   return (
     <SignedInUser.Provider value={user}>
-      <TopNav user={user} />
-      {children}
+      <HeroSlot.Provider value={setHero}>
+        <SiteNav user={user} overDark={hero} />
+        {/* Nav-height padding so plain pages clear the fixed nav; a PageHero
+            pulls itself back up under it. */}
+        <main className="flex flex-1 flex-col pt-18">{children}</main>
+        <SiteFooter />
+      </HeroSlot.Provider>
     </SignedInUser.Provider>
   );
 }

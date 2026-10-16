@@ -1,14 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import {
+  ChartNoAxesColumn,
   ChevronRight,
+  CircleCheck,
   ClipboardList,
   FileText,
+  Hourglass,
+  Layers,
   Loader2,
+  Plus,
   Sparkles,
   Upload,
 } from "lucide-react";
@@ -25,9 +30,10 @@ import {
   type SessionSummary,
 } from "@/lib/api";
 import { formatBytes, humanWhen, minutesLeft, sessionName, toHundred } from "@/lib/format";
-import { clearPendingResume, peekPendingResume } from "@/lib/pending-resume";
+import { peekPendingResume, takePendingResume } from "@/lib/pending-resume";
 import { isAbort, pollUntil, PollTimeout, WORKER_WAIT_MS } from "@/lib/poll";
-import { EASE, Stagger, StaggerItem } from "@/components/motion";
+import { CountUp, EASE, MiniScoreRing, Stagger, StaggerItem } from "@/components/motion";
+import { HeroTile, PageHero } from "@/components/page-hero";
 import {
   Button,
   Card,
@@ -36,7 +42,6 @@ import {
   FIELD_CLASS,
   MeterRow,
   Notice,
-  PageHeading,
   Shell,
   Skeleton,
   StatusPill,
@@ -53,30 +58,12 @@ type Stage = "compose" | "parsing" | "slow" | "parsed" | "creating";
 /** How long "Creating…" may wait on a client navigation before a full page load. */
 const NAVIGATION_FALLBACK_MS = 6000;
 
-export default function MyInterviewsPage() {
-  return (
-    <Shell>
-      <div className="flex flex-col gap-8">
-        <PageHeading
-          title="My interviews"
-          subtitle="Practise on questions written from your own resume, then see where you stand by topic."
-        />
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-          <RecentSessions />
-          <NewInterview />
-        </div>
-      </div>
-    </Shell>
-  );
-}
-
-// --- Left: the candidate's interviews --------------------------------------
-
 /**
- * The candidate's past and in-flight interviews. Loaded once — this is a
- * list to pick from, not a live view, so it doesn't poll.
+ * The candidate's past and in-flight interviews, loaded once — this is a list
+ * to pick from, not a live view, so it doesn't poll. Fetched here rather than
+ * in the list because the hero's numbers come from the same rows.
  */
-function RecentSessions() {
+export default function MyInterviewsPage() {
   const [sessions, setSessions] = useState<SessionSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -99,6 +86,119 @@ function RecentSessions() {
     };
   }, []);
 
+  return (
+    <>
+      <PageHero
+        eyebrow="Your dashboard"
+        title="My interviews"
+        subtitle="Practise on questions written from your own resume, then see where you stand by topic."
+        actions={
+          // On a phone the start card sits below the list; this jumps to it.
+          <a
+            href="#new-interview"
+            className="group inline-flex min-h-12 items-center gap-2 rounded-full bg-white px-6 text-[15px] font-semibold text-brand shadow-[0_16px_40px_-16px_rgba(0,0,0,0.6)] transition-[transform,background] duration-250 ease-out-soft hover:-translate-y-0.5 hover:bg-accent-soft lg:hidden"
+          >
+            <Plus
+              aria-hidden="true"
+              className="size-4.5 transition-transform duration-250 group-hover:rotate-90"
+            />
+            New interview
+          </a>
+        }
+      >
+        <InterviewStats sessions={sessions} />
+      </PageHero>
+      <Shell>
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+          <RecentSessions sessions={sessions} error={error} />
+          <NewInterview />
+        </div>
+      </Shell>
+    </>
+  );
+}
+
+const OPEN_STATES = new Set([
+  "CREATED",
+  "PARSING",
+  "GENERATING_QS",
+  "READY",
+  "IN_PROGRESS",
+  "EVALUATING",
+]);
+
+/** Four numbers for the hero, all derived from the session list. */
+function InterviewStats({ sessions }: { sessions: SessionSummary[] | null }) {
+  if (sessions === null) {
+    return (
+      <div aria-hidden="true" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="h-21.5 animate-pulse rounded-2xl bg-white/8" />
+        ))}
+      </div>
+    );
+  }
+  const finished = sessions.filter(
+    (s) => s.state === "COMPLETED" || s.state === "NEEDS_HUMAN_REVIEW",
+  );
+  const scores = finished.flatMap((s) => (s.overall == null ? [] : [toHundred(s.overall)]));
+  const average = scores.length
+    ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length)
+    : null;
+  const open = sessions.filter((s) => OPEN_STATES.has(s.state)).length;
+
+  return (
+    <Stagger className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <StaggerItem>
+        <HeroTile
+          icon={<Layers aria-hidden="true" className="size-4" />}
+          label="Interviews"
+          value={<CountUp value={sessions.length} />}
+        />
+      </StaggerItem>
+      <StaggerItem>
+        <HeroTile
+          icon={<CircleCheck aria-hidden="true" className="size-4" />}
+          label="Finished"
+          value={<CountUp value={finished.length} />}
+        />
+      </StaggerItem>
+      <StaggerItem>
+        <HeroTile
+          icon={<Hourglass aria-hidden="true" className="size-4" />}
+          label="In progress"
+          value={<CountUp value={open} />}
+        />
+      </StaggerItem>
+      <StaggerItem>
+        <HeroTile
+          icon={<ChartNoAxesColumn aria-hidden="true" className="size-4" />}
+          label="Average score"
+          value={
+            average === null ? (
+              "—"
+            ) : (
+              <>
+                <CountUp value={average} />
+                <span className="text-base font-semibold text-ink-on-dark">/100</span>
+              </>
+            )
+          }
+        />
+      </StaggerItem>
+    </Stagger>
+  );
+}
+
+// --- Left: the candidate's interviews --------------------------------------
+
+function RecentSessions({
+  sessions,
+  error,
+}: {
+  sessions: SessionSummary[] | null;
+  error: string | null;
+}) {
   return (
     <section aria-labelledby="recent" className="flex min-w-0 flex-1 flex-col gap-3">
       <div className="flex items-baseline justify-between">
@@ -149,7 +249,7 @@ function RecentSessions() {
 }
 
 const ROW =
-  "group flex flex-wrap items-center gap-5 rounded-row border bg-surface px-5.5 py-5 text-ink " +
+  "group flex flex-wrap items-center gap-5 rounded-card border bg-surface px-5.5 py-5 text-ink " +
   "transition-[transform,box-shadow,border-color] duration-250 ease-out-soft";
 const ROW_LINK = "hover:-translate-y-0.5 hover:border-accent-mid hover:shadow-lift";
 
@@ -189,7 +289,7 @@ function SessionRow({ session }: { session: SessionSummary }) {
               {session.total_questions}
               {left !== null && `, ${left} min left`}
             </span>
-            <span className="btn-brand rounded-[10px] px-4.5 py-2.5 text-sm font-semibold transition-[background,box-shadow,transform] duration-200">
+            <span className="btn-brand rounded-full px-4.5 py-2.5 text-sm font-semibold transition-[background,box-shadow,transform] duration-200">
               Continue interview
             </span>
           </div>
@@ -208,7 +308,7 @@ function SessionRow({ session }: { session: SessionSummary }) {
             <span className="tabular text-sm text-ink-2">
               {session.total_questions} questions ready
             </span>
-            <span className="btn-brand rounded-[10px] px-4.5 py-2.5 text-sm font-semibold transition-[background,box-shadow,transform] duration-200">
+            <span className="btn-brand rounded-full px-4.5 py-2.5 text-sm font-semibold transition-[background,box-shadow,transform] duration-200">
               Start interview
             </span>
           </div>
@@ -229,13 +329,16 @@ function SessionRow({ session }: { session: SessionSummary }) {
           </div>
           <div className="flex items-center gap-4.5">
             {session.overall != null && (
-              <div className="text-right">
-                <div className="tabular font-display text-[28px] leading-none font-bold">
-                  {toHundred(session.overall)}
-                  <span className="text-[15px] font-semibold text-ink-3">/100</span>
-                </div>
-                <div className={`text-[13px] ${reviewing ? "text-warn" : "text-ink-3"}`}>
-                  {reviewing ? "May change after review" : "Overall"}
+              <div className="flex items-center gap-3">
+                <MiniScoreRing pct={toHundred(session.overall)} />
+                <div className="flex flex-col">
+                  <span className="tabular text-sm font-semibold text-ink">
+                    {toHundred(session.overall)}
+                    <span className="font-medium text-ink-3">/100</span>
+                  </span>
+                  <span className={`text-[13px] ${reviewing ? "text-warn" : "text-ink-3"}`}>
+                    {reviewing ? "May change after review" : "Overall"}
+                  </span>
                 </div>
               </div>
             )}
@@ -295,16 +398,16 @@ function SessionRow({ session }: { session: SessionSummary }) {
 function NewInterview() {
   const router = useRouter();
   const [source, setSource] = useState<"file" | "paste">("file");
-  // A resume chosen on the landing page before sign-in arrives pre-selected.
-  // Peek in the initializer and clear in an effect: Strict Mode runs
-  // initializers twice, and a take-once read would hand the second run null.
-  const [file, setFile] = useState<File | null>(() => peekPendingResume());
-  useEffect(() => clearPendingResume(), []);
+  // A resume chosen on the landing page: choosing it there *was* the request
+  // to upload, so the card opens already reading it instead of asking again.
+  // Read once at mount — this page only renders in the browser, after sign-in.
+  const [arrived] = useState(() => peekPendingResume());
+  const [file, setFile] = useState<File | null>(arrived);
   const [text, setText] = useState("");
-  const [stage, setStage] = useState<Stage>("compose");
+  const [stage, setStage] = useState<Stage>(arrived ? "parsing" : "compose");
   const [resume, setResume] = useState<Resume | null>(null);
   // What the resume came from, for the "Skills we found" header.
-  const [origin, setOrigin] = useState<string>("pasted text");
+  const [origin, setOrigin] = useState<string>(arrived?.name ?? "pasted text");
   // Optional. Empty means "interview me on what my résumé claims".
   const [jobDescription, setJobDescription] = useState("");
   // The resume being parsed. Kept across a timeout so "keep waiting" watches
@@ -422,24 +525,54 @@ function NewInterview() {
     setStage("compose");
   }
 
+  // The upload for a resume carried over from the landing page (see the state
+  // above). `take` hands it out once, so Strict Mode's second effect run finds
+  // nothing; every state change waits for the server's answer.
+  const uploadOnArrival = useEffectEvent((pending: File) => {
+    uploadResume(pending)
+      .then((created) => {
+        setPendingResumeId(created.id);
+        return waitForParse(created.id);
+      })
+      .catch((err) => {
+        setError(describeError(err, "Upload failed"));
+        setStage("compose");
+      });
+  });
+  useEffect(() => {
+    const pending = takePendingResume();
+    if (pending) uploadOnArrival(pending);
+  }, []);
+
   const view = stage === "creating" ? "parsed" : stage;
 
   return (
     <Card
       as="aside"
+      id="new-interview"
       aria-labelledby="new"
-      className="flex w-full flex-col gap-5 p-6 sm:p-7 lg:sticky lg:top-23 lg:w-105 lg:shrink-0"
+      className="relative flex w-full scroll-mt-28 flex-col gap-5 overflow-hidden p-6 shadow-[0_32px_64px_-36px_rgba(15,61,68,0.45)] sm:p-7 lg:sticky lg:top-24 lg:w-105 lg:shrink-0"
     >
-      <div className="flex flex-col gap-1.5">
-        <h2
-          id="new"
-          className="font-display text-2xl font-bold tracking-[-0.01em] text-ink"
-        >
-          Start a new interview
-        </h2>
-        <p className="text-ink-2">
-          We read your resume, pick out the skills you list, and write questions on them.
-        </p>
+      {/* The landing hero's lit hairline, along the card's top edge. */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-6 top-0 h-px bg-linear-to-r from-transparent via-glow to-transparent"
+      />
+      <div className="flex items-start gap-4">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-linear-to-br from-glow to-accent text-white shadow-[0_10px_24px_-10px_rgba(10,117,112,0.7)]">
+          <Sparkles aria-hidden="true" className="size-5" />
+        </span>
+        <div className="flex flex-col gap-1">
+          <h2
+            id="new"
+            className="font-display text-2xl leading-tight font-bold tracking-[-0.01em] text-ink"
+          >
+            Start a new interview
+          </h2>
+          <p className="text-ink-2">
+            We read your resume, pick out the skills you list, and write questions on them.
+          </p>
+        </div>
       </div>
 
       {error && <ErrorBanner message={error} />}
@@ -630,7 +763,7 @@ function SourceToggle({
     <div
       role="radiogroup"
       aria-label="Resume source"
-      className="grid grid-cols-2 gap-1 rounded-control bg-canvas p-1"
+      className="grid grid-cols-2 gap-1 rounded-full bg-canvas p-1"
     >
       {options.map((option) => {
         const active = value === option.value;
@@ -641,14 +774,14 @@ function SourceToggle({
             role="radio"
             aria-checked={active}
             onClick={() => onChange(option.value)}
-            className={`relative min-h-10 cursor-pointer rounded-[9px] text-sm transition-colors duration-200 ${
+            className={`relative min-h-10 cursor-pointer rounded-full text-sm transition-colors duration-200 ${
               active ? "font-semibold text-ink" : "font-medium text-ink-2 hover:bg-white/65 hover:text-ink"
             }`}
           >
             {active && (
               <motion.span
                 layoutId="source-toggle"
-                className="absolute inset-0 rounded-[9px] bg-surface shadow-[0_1px_2px_rgba(15,46,53,0.12)]"
+                className="absolute inset-0 rounded-full bg-surface shadow-[0_1px_2px_rgba(15,46,53,0.12)]"
                 transition={{ type: "spring", stiffness: 500, damping: 38 }}
               />
             )}

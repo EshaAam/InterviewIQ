@@ -25,7 +25,6 @@ import {
   ErrorBanner,
   IntegrityBadge,
   Notice,
-  PageHeading,
   PageLoading,
   ScoreBar,
   ScoreBox,
@@ -33,6 +32,7 @@ import {
   StatCard,
   StatusPill,
 } from "@/components/ui";
+import { PageHero } from "@/components/page-hero";
 
 type Overriding = { evaluation: EvaluationDetail; topic: string };
 
@@ -95,140 +95,140 @@ export default function RecruiterSessionDetailPage({
     : [];
 
   return (
-    <Shell>
-      <div className="flex flex-col gap-6">
-        <BackLink href="/recruiter/sessions">All sessions</BackLink>
-
-        <PageHeading
-          size="md"
-          title={detail.candidate_email}
-          subtitle={`Session ${sessionName(detail.id)} · created ${relativeTime(detail.created_at)} · ${detail.questions.length} questions`}
-          actions={
-            <>
-              {detail.integrity_flag && <IntegrityBadge />}
-              <StatusPill state={detail.state} />
-              {detail.report && <DownloadPdfButton sessionId={detail.id} asRecruiter />}
-            </>
-          }
-        />
-
-        {error && <ErrorBanner message={error} />}
-        {detail.failure_reason && (
-          <Notice tone="bad" role="alert" title="This session failed">
-            {detail.failure_reason}
-          </Notice>
-        )}
-        {detail.resume_integrity.length > 0 && (
-          /* The résumé tried to instruct the AI that wrote these questions.
-             Advisory: the text was fenced off as data, so this says what was
-             attempted, not that it worked. */
-          <Notice tone="warn" title="Résumé — advisory">
-            {detail.resume_integrity.map((signal) => (
-              <span key={signal.code} className="block">
-                {signal.detail}
+    <>
+      <PageHero
+        back={{ href: "/recruiter/sessions", label: "All sessions" }}
+        eyebrow="Candidate session"
+        title={detail.candidate_email}
+        subtitle={`Session ${sessionName(detail.id)} · created ${relativeTime(detail.created_at)} · ${detail.questions.length} questions`}
+        actions={
+          <>
+            {detail.integrity_flag && <IntegrityBadge />}
+            <StatusPill state={detail.state} />
+            {detail.report && <DownloadPdfButton sessionId={detail.id} asRecruiter onDark />}
+          </>
+        }
+      />
+      <Shell>
+        <div className="flex flex-col gap-6">
+          {error && <ErrorBanner message={error} />}
+          {detail.failure_reason && (
+            <Notice tone="bad" role="alert" title="This session failed">
+              {detail.failure_reason}
+            </Notice>
+          )}
+          {detail.resume_integrity.length > 0 && (
+            /* The résumé tried to instruct the AI that wrote these questions.
+               Advisory: the text was fenced off as data, so this says what was
+               attempted, not that it worked. */
+            <Notice tone="warn" title="Résumé — advisory">
+              {detail.resume_integrity.map((signal) => (
+                <span key={signal.code} className="block">
+                  {signal.detail}
+                </span>
+              ))}
+              <span className="mt-1 block text-xs opacity-80">
+                The résumé was passed to the AI as data, never as instructions. Check the
+                questions below look like a normal interview.
               </span>
-            ))}
-            <span className="mt-1 block text-xs opacity-80">
-              The résumé was passed to the AI as data, never as instructions. Check the
-              questions below look like a normal interview.
-            </span>
-          </Notice>
-        )}
+            </Notice>
+          )}
 
-        <div className="flex flex-wrap gap-4">
-          <StatCard
-            label="Overall score"
-            icon={<Gauge aria-hidden="true" className="size-4" />}
-            value={detail.report ? `${toHundred(detail.report.overall)}/100` : "—"}
-            caption={
-              detail.report?.human_reviewed
-                ? "includes recruiter overrides"
-                : detail.report
-                  ? "as graded"
-                  : "no report yet"
-            }
-          />
-          <StatCard
-            label="Answered"
-            icon={<Users aria-hidden="true" className="size-4" />}
-            value={`${answered}/${detail.questions.length}`}
-            caption="questions with an answer"
-          />
-          <StatCard
-            label="Waiting on review"
-            icon={<Flag aria-hidden="true" className="size-4" />}
-            value={String(flagged)}
-            caption={flagged === 0 ? "nothing flagged" : "answers flagged below"}
-          />
+          <div className="flex flex-wrap gap-4">
+            <StatCard
+              label="Overall score"
+              icon={<Gauge aria-hidden="true" className="size-4" />}
+              value={detail.report ? `${toHundred(detail.report.overall)}/100` : "—"}
+              caption={
+                detail.report?.human_reviewed
+                  ? "includes recruiter overrides"
+                  : detail.report
+                    ? "as graded"
+                    : "no report yet"
+              }
+            />
+            <StatCard
+              label="Answered"
+              icon={<Users aria-hidden="true" className="size-4" />}
+              value={`${answered}/${detail.questions.length}`}
+              caption="questions with an answer"
+            />
+            <StatCard
+              label="Waiting on review"
+              icon={<Flag aria-hidden="true" className="size-4" />}
+              value={String(flagged)}
+              caption={flagged === 0 ? "nothing flagged" : "answers flagged below"}
+            />
+          </div>
+
+          {topics.length > 0 && (
+            <Card className="flex flex-col gap-5 p-7">
+              <h2 className="text-lg font-semibold">Score by topic</h2>
+              <div className="grid gap-5 md:grid-cols-2">
+                {topics.map(([topic, score], i) => (
+                  <ScoreBar key={topic} topic={topic} score={score} delay={i * 0.06} />
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {detail.jd_gaps.length > 0 && (
+            /* What the questions were aimed at. Shown as stored at generation
+               time, not recomputed, so this stays an accurate record of what
+               this interview actually targeted. */
+            <Card as="section" aria-labelledby="jd-gaps" className="flex flex-col gap-3 p-6">
+              <h2 id="jd-gaps" className="text-lg font-semibold">
+                Targeted from the job description
+              </h2>
+              <p className="text-[13px] text-ink-3">
+                Requirements the resume did not evidence. Questions were weighted towards
+                these rather than towards skills already on the page.
+              </p>
+              <ul className="flex flex-col gap-2">
+                {detail.jd_gaps.map((gap) => (
+                  <li key={gap} className="flex items-baseline gap-2 text-[14px]">
+                    <span aria-hidden="true" className="text-warn">
+                      &bull;
+                    </span>
+                    <span className="text-ink-2">{gap}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+
+          <Stagger className="flex flex-col gap-4">
+            {detail.questions.map((question) => (
+              <StaggerItem key={question.id}>
+                <QuestionCard
+                  question={question}
+                  onOverride={(evaluation) => setOverriding({ evaluation, topic: question.topic })}
+                  onAccept={(evaluation) =>
+                    save(evaluation.id, evaluation.final_score, null).catch((err) =>
+                      setError(describeError(err, "Could not save the score")),
+                    )
+                  }
+                />
+              </StaggerItem>
+            ))}
+          </Stagger>
         </div>
 
-        {topics.length > 0 && (
-          <Card className="flex flex-col gap-5 p-7">
-            <h2 className="text-lg font-semibold">Score by topic</h2>
-            <div className="grid gap-5 md:grid-cols-2">
-              {topics.map(([topic, score], i) => (
-                <ScoreBar key={topic} topic={topic} score={score} delay={i * 0.06} />
-              ))}
-            </div>
-          </Card>
-        )}
-
-        {detail.jd_gaps.length > 0 && (
-          /* What the questions were aimed at. Shown as stored at generation
-             time, not recomputed, so this stays an accurate record of what
-             this interview actually targeted. */
-          <Card as="section" aria-labelledby="jd-gaps" className="flex flex-col gap-3 p-6">
-            <h2 id="jd-gaps" className="text-lg font-semibold">
-              Targeted from the job description
-            </h2>
-            <p className="text-[13px] text-ink-3">
-              Requirements the resume did not evidence. Questions were weighted towards
-              these rather than towards skills already on the page.
-            </p>
-            <ul className="flex flex-col gap-2">
-              {detail.jd_gaps.map((gap) => (
-                <li key={gap} className="flex items-baseline gap-2 text-[14px]">
-                  <span aria-hidden="true" className="text-warn">
-                    &bull;
-                  </span>
-                  <span className="text-ink-2">{gap}</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        )}
-
-        <Stagger className="flex flex-col gap-4">
-          {detail.questions.map((question) => (
-            <StaggerItem key={question.id}>
-              <QuestionCard
-                question={question}
-                onOverride={(evaluation) => setOverriding({ evaluation, topic: question.topic })}
-                onAccept={(evaluation) =>
-                  save(evaluation.id, evaluation.final_score, null).catch((err) =>
-                    setError(describeError(err, "Could not save the score")),
-                  )
-                }
-              />
-            </StaggerItem>
-          ))}
-        </Stagger>
-      </div>
-
-      <AnimatePresence>
-        {overriding && (
-          <OverrideDialog
-            item={{
-              topic: overriding.topic,
-              final_score: overriding.evaluation.final_score,
-              deterministic_score: overriding.evaluation.deterministic_score,
-            }}
-            onCancel={() => setOverriding(null)}
-            onSave={(score, note) => save(overriding.evaluation.id, score, note)}
-          />
-        )}
-      </AnimatePresence>
-    </Shell>
+        <AnimatePresence>
+          {overriding && (
+            <OverrideDialog
+              item={{
+                topic: overriding.topic,
+                final_score: overriding.evaluation.final_score,
+                deterministic_score: overriding.evaluation.deterministic_score,
+              }}
+              onCancel={() => setOverriding(null)}
+              onSave={(score, note) => save(overriding.evaluation.id, score, note)}
+            />
+          )}
+        </AnimatePresence>
+      </Shell>
+    </>
   );
 }
 

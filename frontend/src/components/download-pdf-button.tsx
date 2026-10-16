@@ -10,10 +10,13 @@ import { Button } from "./ui";
 export function DownloadPdfButton({
   sessionId,
   asRecruiter = false,
+  onDark = false,
 }: {
   sessionId: string;
   /** The recruiter's copy adds the candidate's email and integrity signals. */
   asRecruiter?: boolean;
+  /** Sits on a dark hero: the error text needs a light colour to be read. */
+  onDark?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +37,7 @@ export function DownloadPdfButton({
   return (
     <span className="flex items-center gap-2">
       {error && (
-        <span role="alert" className="text-xs text-bad">
+        <span role="alert" className={`text-xs ${onDark ? "text-[#ffb59a]" : "text-bad"}`}>
           {error}
         </span>
       )}

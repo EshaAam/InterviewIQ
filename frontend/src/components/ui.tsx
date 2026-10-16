@@ -19,6 +19,7 @@ import {
 import type { SessionState, CitedSource } from "@/lib/api";
 import { toHundred } from "@/lib/format";
 import { BarFill, FadeIn, PulseDot } from "./motion";
+import { PageHero } from "./page-hero";
 
 // --- Buttons ---------------------------------------------------------------
 
@@ -26,7 +27,7 @@ type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 type ButtonSize = "sm" | "md" | "lg";
 
 const BUTTON_BASE =
-  "inline-flex items-center justify-center gap-2 rounded-control font-semibold whitespace-nowrap " +
+  "inline-flex items-center justify-center gap-2 rounded-full font-semibold whitespace-nowrap " +
   "transition-[background,border-color,box-shadow,transform,color] duration-200 ease-out-soft " +
   "disabled:cursor-not-allowed disabled:opacity-55 cursor-pointer";
 
@@ -114,36 +115,8 @@ export function Shell({
 }) {
   const max = { wide: "max-w-280", medium: "max-w-215", narrow: "max-w-155" }[width];
   return (
-    <main className={`mx-auto w-full ${max} px-4 pt-10 pb-18 sm:px-6 sm:pt-12 ${className}`}>
+    <div className={`mx-auto w-full ${max} px-4 pt-10 pb-18 sm:px-6 sm:pt-12 ${className}`}>
       <FadeIn>{children}</FadeIn>
-    </main>
-  );
-}
-
-export function PageHeading({
-  title,
-  subtitle,
-  actions,
-  size = "lg",
-}: {
-  title: ReactNode;
-  subtitle?: ReactNode;
-  actions?: ReactNode;
-  size?: "lg" | "md";
-}) {
-  return (
-    <div className="flex flex-wrap items-end justify-between gap-4">
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <h1
-          className={`font-display font-bold tracking-[-0.02em] text-ink ${
-            size === "lg" ? "text-[32px] leading-[1.1] sm:text-[40px]" : "text-[28px] leading-[1.15]"
-          }`}
-        >
-          {title}
-        </h1>
-        {subtitle && <p className="max-w-[70ch] text-[17px] text-ink-2">{subtitle}</p>}
-      </div>
-      {actions && <div className="flex shrink-0 flex-wrap items-center gap-3">{actions}</div>}
     </div>
   );
 }
@@ -491,8 +464,52 @@ export function Skeleton({ className = "" }: { className?: string }) {
   );
 }
 
-/** A whole page that is waiting on its first fetch. */
-export function PageLoading({ width = "wide" }: { width?: "wide" | "medium" | "narrow" }) {
+/**
+ * A whole page that is waiting on its first fetch. Pages that open with a
+ * `PageHero` load with a skeleton one, so the dark band (and the navbar over
+ * it) doesn't flash light and then flip when the data lands.
+ */
+export function PageLoading({
+  width = "wide",
+  hero = true,
+}: {
+  width?: "wide" | "medium" | "narrow";
+  hero?: boolean;
+}) {
+  const rows = (
+    <div className="flex flex-col gap-3 pt-2">
+      <Skeleton className="h-24 w-full" />
+      <Skeleton className="h-24 w-full" />
+      <Skeleton className="h-24 w-full" />
+    </div>
+  );
+  if (hero) {
+    return (
+      <>
+        <PageHero
+          width={width}
+          title={
+            <>
+              <span className="sr-only" role="status">
+                Loading…
+              </span>
+              <span
+                aria-hidden="true"
+                className="block h-11 w-72 max-w-full animate-pulse rounded-xl bg-white/10"
+              />
+            </>
+          }
+          subtitle={
+            <span
+              aria-hidden="true"
+              className="block h-5 w-96 max-w-full animate-pulse rounded-lg bg-white/8"
+            />
+          }
+        />
+        <Shell width={width}>{rows}</Shell>
+      </>
+    );
+  }
   return (
     <Shell width={width}>
       <div className="flex flex-col gap-6">
@@ -501,11 +518,7 @@ export function PageLoading({ width = "wide" }: { width?: "wide" | "medium" | "n
         </span>
         <Skeleton className="h-10 w-72" />
         <Skeleton className="h-5 w-96 max-w-full" />
-        <div className="flex flex-col gap-3 pt-2">
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-24 w-full" />
-        </div>
+        {rows}
       </div>
     </Shell>
   );

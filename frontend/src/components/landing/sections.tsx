@@ -30,8 +30,8 @@ import {
   Upload,
   UserCheck,
 } from "lucide-react";
-import { loginHref } from "@/lib/use-user";
-import { Logo } from "@/components/brand";
+import type { User } from "@/lib/auth";
+import { homeFor, loginHref } from "@/lib/use-user";
 import { EASE, Reveal, Stagger, StaggerItem } from "@/components/motion";
 
 const CONTAINER = "mx-auto w-full max-w-280 px-4 sm:px-6";
@@ -648,7 +648,7 @@ export function Recruiters() {
 
 // --- Closing call to action and footer --------------------------------------
 
-export function FinalCta({ onStart }: { onStart: () => void }) {
+export function FinalCta({ user, onStart }: { user: User | null; onStart: () => void }) {
   return (
     <section className="bg-canvas pb-24 sm:pb-32">
       <div className={CONTAINER}>
@@ -679,28 +679,15 @@ export function FinalCta({ onStart }: { onStart: () => void }) {
                 Upload your resume
               </motion.button>
               <Link
-                href={loginHref()}
+                href={user ? homeFor(user) : loginHref()}
                 className="inline-flex min-h-13 items-center rounded-full border border-white/20 px-6 text-[15px] font-semibold text-white transition-[background,border-color] duration-250 hover:border-white/40 hover:bg-white/8"
               >
-                Sign in
+                {user ? (user.role === "recruiter" ? "Review queue" : "My interviews") : "Sign in"}
               </Link>
             </div>
           </div>
         </Reveal>
       </div>
     </section>
-  );
-}
-
-export function Footer() {
-  return (
-    <footer className="border-t border-line bg-surface">
-      <div
-        className={`${CONTAINER} flex flex-col items-center justify-between gap-4 py-10 sm:flex-row`}
-      >
-        <Logo />
-        <p className="text-sm text-ink-3">Scores are advisory until a person agrees with them.</p>
-      </div>
-    </footer>
   );
 }

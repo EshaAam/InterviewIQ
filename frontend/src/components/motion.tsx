@@ -246,6 +246,57 @@ export function ScoreRing({
   );
 }
 
+/**
+ * A compact score ring for list rows: the arc draws in when the row scrolls
+ * into view, the number sits in the middle. It names the score for screen
+ * readers; the caller shows the visible "/100".
+ */
+export function MiniScoreRing({ pct, size = 54 }: { pct: number; size?: number }) {
+  const ref = useRef<SVGSVGElement>(null);
+  const inView = useInView(ref, { once: true });
+  const stroke = 5;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const clamped = Math.min(Math.max(pct, 0), 100);
+  return (
+    <div
+      className="relative flex shrink-0 items-center justify-center"
+      style={{ width: size, height: size }}
+      role="img"
+      aria-label={`Score ${clamped} out of 100`}
+    >
+      <svg ref={ref} width={size} height={size} className="-rotate-90" aria-hidden="true">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="var(--color-track)"
+          strokeWidth={stroke}
+        />
+        <motion.circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="var(--color-accent)"
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          initial={{ strokeDashoffset: circumference }}
+          animate={{
+            strokeDashoffset: inView ? circumference * (1 - clamped / 100) : circumference,
+          }}
+          transition={{ duration: 1.1, ease: EASE, delay: 0.1 }}
+        />
+      </svg>
+      <span className="tabular absolute font-display text-[17px] font-bold text-ink">
+        {clamped}
+      </span>
+    </div>
+  );
+}
+
 /** A soft pulsing dot for anything still in flight. */
 export function PulseDot({ className = "bg-current" }: { className?: string }) {
   return (

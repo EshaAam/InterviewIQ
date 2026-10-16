@@ -6,11 +6,11 @@ import { wakeBackend } from "@/lib/api";
 import { setPendingResume } from "@/lib/pending-resume";
 import { destinationFor, loginHref, useUser } from "@/lib/use-user";
 import { Hero } from "./hero";
-import { PublicNav } from "./public-nav";
+import { SiteFooter } from "@/components/site-footer";
+import { SiteNav } from "@/components/site-nav";
 import {
   Features,
   FinalCta,
-  Footer,
   Grading,
   HowItWorks,
   Recruiters,
@@ -41,7 +41,7 @@ export function Landing() {
 
   return (
     <>
-      <PublicNav user={user} onStart={() => start()} />
+      <SiteNav user={user} overDark onStart={() => start()} />
       <main className="flex flex-1 flex-col">
         <Hero signedIn={user !== null} onStart={start} />
         <TopicMarquee />
@@ -49,9 +49,9 @@ export function Landing() {
         <Grading />
         <Features />
         <Recruiters />
-        <FinalCta onStart={() => start()} />
+        <FinalCta user={user} onStart={() => start()} />
       </main>
-      <Footer />
+      <SiteFooter />
     </>
   );
 }

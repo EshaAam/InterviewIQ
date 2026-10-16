@@ -19,11 +19,11 @@ import {
   Chip,
   EmptyState,
   ErrorBanner,
-  PageHeading,
   ScoreBox,
   Shell,
   Skeleton,
 } from "@/components/ui";
+import { PageHero } from "@/components/page-hero";
 
 const PAGE_SIZE = 20;
 
@@ -88,108 +88,111 @@ export default function ReviewQueuePage() {
   const [head, ...rest] = queue?.items ?? [];
 
   return (
-    <Shell width="medium">
-      <div className="flex flex-col gap-6">
-        <PageHeading
-          title="Review queue"
-          subtitle="Answers where the rule-based pass and the model pass disagreed past threshold. Nothing here has been auto-scored."
-          actions={queue ? <Chip tone="warn">{queue.total} waiting</Chip> : undefined}
-        />
+    <>
+      <PageHero
+        width="medium"
+        eyebrow="Recruiter"
+        title="Review queue"
+        subtitle="Answers where the rule-based pass and the model pass disagreed past threshold. Nothing here has been auto-scored."
+        actions={queue ? <Chip tone="warn">{queue.total} waiting</Chip> : undefined}
+      />
+      <Shell width="medium">
+        <div className="flex flex-col gap-6">
+          {error && <ErrorBanner message={error} />}
 
-        {error && <ErrorBanner message={error} />}
-
-        {queue === null && !error && (
-          <div className="flex flex-col gap-3">
-            <span className="sr-only" role="status">
-              Loading the queue…
-            </span>
-            <Skeleton className="h-72 w-full rounded-card" />
-            <Skeleton className="h-16 w-full rounded-row" />
-            <Skeleton className="h-16 w-full rounded-row" />
-          </div>
-        )}
-        {queue?.items.length === 0 && (
-          <EmptyState
-            icon={<PartyPopper aria-hidden="true" className="size-6" />}
-            title="All clear"
-          >
-            Nothing is waiting on a human right now.
-          </EmptyState>
-        )}
-
-        <AnimatePresence mode="popLayout" initial={false}>
-          {head && (
-            <motion.div
-              key={head.id}
-              layout
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, x: 60, transition: { duration: 0.25 } }}
-              transition={{ duration: 0.4, ease: EASE }}
+          {queue === null && !error && (
+            <div className="flex flex-col gap-3">
+              <span className="sr-only" role="status">
+                Loading the queue…
+              </span>
+              <Skeleton className="h-72 w-full rounded-card" />
+              <Skeleton className="h-16 w-full rounded-row" />
+              <Skeleton className="h-16 w-full rounded-row" />
+            </div>
+          )}
+          {queue?.items.length === 0 && (
+            <EmptyState
+              icon={<PartyPopper aria-hidden="true" className="size-6" />}
+              title="All clear"
             >
-              <ExpandedReview
-                item={head}
-                onAccept={() =>
-                  resolve(head, head.final_score, null).catch((err) =>
-                    setError(describeError(err, "Could not save the score")),
-                  )
-                }
-                onOverride={() => setOverriding(head)}
-              />
-            </motion.div>
+              Nothing is waiting on a human right now.
+            </EmptyState>
           )}
 
-          {rest.map((item) => (
-            <motion.div
-              key={item.id}
-              layout
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3, ease: EASE }}
-            >
-              <Link
-                href={`/recruiter/sessions/${item.session_id}`}
-                className="group flex items-center gap-3 rounded-row border border-line bg-surface px-5 py-4 shadow-card transition-[transform,box-shadow,border-color] duration-250 ease-out-soft hover:-translate-y-0.5 hover:border-accent-mid hover:shadow-lift"
+          <AnimatePresence mode="popLayout" initial={false}>
+            {head && (
+              <motion.div
+                key={head.id}
+                layout
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, x: 60, transition: { duration: 0.25 } }}
+                transition={{ duration: 0.4, ease: EASE }}
               >
-                <Chip tone="accent">{item.topic}</Chip>
-                <span className="min-w-0 flex-1 truncate text-sm text-ink-2">
-                  {item.question_text}
-                </span>
-                <span className="hidden truncate text-xs text-ink-3 sm:inline">
-                  {item.candidate_email}
-                </span>
-                <span className="tabular shrink-0 text-xs font-semibold text-ink-3">
-                  {item.deterministic_score.toFixed(2)} vs {item.final_score.toFixed(2)}
-                </span>
-                <ArrowUpRight
-                  aria-hidden="true"
-                  className="size-4 shrink-0 text-accent transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                <ExpandedReview
+                  item={head}
+                  onAccept={() =>
+                    resolve(head, head.final_score, null).catch((err) =>
+                      setError(describeError(err, "Could not save the score")),
+                    )
+                  }
+                  onOverride={() => setOverriding(head)}
                 />
-              </Link>
-            </motion.div>
-          ))}
+              </motion.div>
+            )}
+
+            {rest.map((item) => (
+              <motion.div
+                key={item.id}
+                layout
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3, ease: EASE }}
+              >
+                <Link
+                  href={`/recruiter/sessions/${item.session_id}`}
+                  className="group flex items-center gap-3 rounded-row border border-line bg-surface px-5 py-4 shadow-card transition-[transform,box-shadow,border-color] duration-250 ease-out-soft hover:-translate-y-0.5 hover:border-accent-mid hover:shadow-lift"
+                >
+                  <Chip tone="accent">{item.topic}</Chip>
+                  <span className="min-w-0 flex-1 truncate text-sm text-ink-2">
+                    {item.question_text}
+                  </span>
+                  <span className="hidden truncate text-xs text-ink-3 sm:inline">
+                    {item.candidate_email}
+                  </span>
+                  <span className="tabular shrink-0 text-xs font-semibold text-ink-3">
+                    {item.deterministic_score.toFixed(2)} vs {item.final_score.toFixed(2)}
+                  </span>
+                  <ArrowUpRight
+                    aria-hidden="true"
+                    className="size-4 shrink-0 text-accent transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                  />
+                </Link>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+
+          {queue && queue.items.length < queue.total && (
+            <div className="flex justify-center">
+              <Button variant="secondary" onClick={loadMore} loading={loadingMore}>
+                {loadingMore ? "Loading…" : `Load more (${queue.total - queue.items.length} not shown)`}
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <AnimatePresence>
+          {overriding && (
+            <OverrideDialog
+              item={overriding}
+              onCancel={() => setOverriding(null)}
+              onSave={(score, note) => resolve(overriding, score, note)}
+            />
+          )}
         </AnimatePresence>
-
-        {queue && queue.items.length < queue.total && (
-          <div className="flex justify-center">
-            <Button variant="secondary" onClick={loadMore} loading={loadingMore}>
-              {loadingMore ? "Loading…" : `Load more (${queue.total - queue.items.length} not shown)`}
-            </Button>
-          </div>
-        )}
-      </div>
-
-      <AnimatePresence>
-        {overriding && (
-          <OverrideDialog
-            item={overriding}
-            onCancel={() => setOverriding(null)}
-            onSave={(score, note) => resolve(overriding, score, note)}
-          />
-        )}
-      </AnimatePresence>
-    </Shell>
+      </Shell>
+    </>
   );
 }
 
