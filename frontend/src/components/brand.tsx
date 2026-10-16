@@ -1,6 +1,6 @@
 /** The InterviewIQ mark and wordmark. The mark tilts and brightens on hover. */
 export function Logo({ size = "md", tone = "dark" }: { size?: "md" | "lg"; tone?: "dark" | "light" }) {
-  const mark = size === "lg" ? "size-10 rounded-xl text-base" : "size-[34px] rounded-[10px] text-sm";
+  const mark = size === "lg" ? "size-10 rounded-xl text-base" : "size-8.5 rounded-[10px] text-sm";
   const word = size === "lg" ? "text-[22px]" : "text-[19px]";
   return (
     <span className="group/logo flex items-center gap-2.5">

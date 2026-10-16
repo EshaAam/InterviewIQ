@@ -53,3 +53,9 @@ export function toHundred(score: number): number {
 export function minutesLeft(iso: string, now: number = Date.now()): number {
   return Math.max(0, Math.ceil((new Date(iso).getTime() - now) / 60_000));
 }
+
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}

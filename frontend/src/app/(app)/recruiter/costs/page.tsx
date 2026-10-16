@@ -121,7 +121,7 @@ export default function CostsPage() {
 
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
-            <div className="min-w-[820px]">
+            <div className="min-w-205">
               <div
                 className={`${COLUMNS} border-b border-line bg-subtle px-6 py-3 text-[11px] font-semibold tracking-[0.06em] text-ink-3 uppercase`}
               >

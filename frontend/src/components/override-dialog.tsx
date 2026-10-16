@@ -73,7 +73,7 @@ export function OverrideDialog({
         exit={{ opacity: 0, y: 10, scale: 0.98 }}
         transition={{ duration: 0.28, ease: EASE }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-[540px]"
+        className="w-full max-w-135"
       >
         <Card className="flex flex-col gap-5 p-7">
           <div className="flex items-start gap-3.5">

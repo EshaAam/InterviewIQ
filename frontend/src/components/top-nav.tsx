@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { motion } from "motion/react";
-import { clearTokens, type User } from "@/lib/auth";
-import { homeFor } from "@/lib/use-user";
+import type { User } from "@/lib/auth";
+import { homeFor, useSignOut } from "@/lib/use-user";
 import { Logo } from "./brand";
 
 /**
@@ -14,7 +14,7 @@ import { Logo } from "./brand";
  */
 export function TopNav({ user }: { user: User }) {
   const pathname = usePathname();
-  const router = useRouter();
+  const signOut = useSignOut();
 
   const links =
     user.role === "recruiter"
@@ -29,14 +29,9 @@ export function TopNav({ user }: { user: User }) {
           { href: "/interview", label: "My interviews", also: ["/reports"] },
         ];
 
-  function signOut() {
-    clearTokens();
-    router.replace("/login");
-  }
-
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-surface/85 backdrop-blur-md supports-[backdrop-filter]:bg-surface/75">
-      <div className="mx-auto flex h-[68px] w-full max-w-[1120px] items-center gap-4 px-4 sm:gap-7 sm:px-6">
+    <header className="sticky top-0 z-40 border-b border-line bg-surface/85 backdrop-blur-md supports-backdrop-filter:bg-surface/75">
+      <div className="mx-auto flex h-17 w-full max-w-280 items-center gap-4 px-4 sm:gap-7 sm:px-6">
         <Link href={homeFor(user)} aria-label="InterviewIQ home" className="shrink-0 rounded-[10px]">
           <Logo />
         </Link>
@@ -87,7 +82,7 @@ export function TopNav({ user }: { user: User }) {
           </span>
           <LogOut
             aria-hidden="true"
-            className="absolute size-[18px] opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+            className="absolute size-4.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
           />
         </button>
       </div>

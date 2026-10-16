@@ -175,7 +175,7 @@ export default function ReportPage({
             transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
           />
           <ScoreRing pct={overall} />
-          <div className="relative flex min-w-[280px] flex-1 flex-col gap-5">
+          <div className="relative flex min-w-70 flex-1 flex-col gap-5">
             <div>
               <h2 id="overall" className="font-display text-[26px] font-bold">
                 Overall score
@@ -194,7 +194,7 @@ export default function ReportPage({
         </motion.section>
 
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-          <Card as="section" aria-labelledby="topics" className="flex min-w-0 flex-1 flex-col gap-[22px] p-7">
+          <Card as="section" aria-labelledby="topics" className="flex min-w-0 flex-1 flex-col gap-5.5 p-7">
             <div className="flex items-baseline justify-between">
               <h2 id="topics" className="text-lg font-semibold">
                 Score by topic
@@ -241,7 +241,7 @@ export default function ReportPage({
             )}
           </Card>
 
-          <div className="flex w-full flex-col gap-6 lg:w-[420px] lg:shrink-0">
+          <div className="flex w-full flex-col gap-6 lg:w-105 lg:shrink-0">
             <Card as="section" aria-labelledby="gaps" className="flex flex-col gap-4 p-7">
               <h2 id="gaps" className="flex items-center gap-2 text-lg font-semibold">
                 <Target aria-hidden="true" className="size-5 text-warn" />
@@ -256,7 +256,7 @@ export default function ReportPage({
                       <StaggerItem
                         as="li"
                         key={topic}
-                        className="flex items-center justify-between rounded-[12px] bg-warn-subtle px-3.5 py-3 transition-[background,transform] duration-200 hover:translate-x-0.5 hover:bg-warn-hover"
+                        className="flex items-center justify-between rounded-control bg-warn-subtle px-3.5 py-3 transition-[background,transform] duration-200 hover:translate-x-0.5 hover:bg-warn-hover"
                       >
                         <span className="font-semibold text-warn-deep">{topic}</span>
                         <span className="tabular text-[13px] text-warn">
@@ -289,7 +289,7 @@ export default function ReportPage({
                     <StaggerItem
                       as="li"
                       key={topic}
-                      className="flex items-center justify-between rounded-[12px] bg-ok-subtle px-3.5 py-3 transition-transform duration-200 hover:translate-x-0.5"
+                      className="flex items-center justify-between rounded-control bg-ok-subtle px-3.5 py-3 transition-transform duration-200 hover:translate-x-0.5"
                     >
                       <span className="font-semibold text-ok">{topic}</span>
                       <span className="tabular text-[13px] text-ok">

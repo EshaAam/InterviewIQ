@@ -20,11 +20,12 @@ import {
   getResume,
   listMySessions,
   RESUME_EXTENSIONS,
-  RESUME_MAX_BYTES,
+  resumeProblem,
   type Resume,
   type SessionSummary,
 } from "@/lib/api";
-import { humanWhen, minutesLeft, sessionName, toHundred } from "@/lib/format";
+import { formatBytes, humanWhen, minutesLeft, sessionName, toHundred } from "@/lib/format";
+import { clearPendingResume, peekPendingResume } from "@/lib/pending-resume";
 import { isAbort, pollUntil, PollTimeout, WORKER_WAIT_MS } from "@/lib/poll";
 import { EASE, Stagger, StaggerItem } from "@/components/motion";
 import {
@@ -119,7 +120,7 @@ function RecentSessions() {
             Loading your interviews…
           </span>
           {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-[92px] w-full rounded-row" />
+            <Skeleton key={i} className="h-23 w-full rounded-row" />
           ))}
         </div>
       )}
@@ -148,7 +149,7 @@ function RecentSessions() {
 }
 
 const ROW =
-  "group flex flex-wrap items-center gap-5 rounded-row border bg-surface px-[22px] py-5 text-ink " +
+  "group flex flex-wrap items-center gap-5 rounded-row border bg-surface px-5.5 py-5 text-ink " +
   "transition-[transform,box-shadow,border-color] duration-250 ease-out-soft";
 const ROW_LINK = "hover:-translate-y-0.5 hover:border-accent-mid hover:shadow-lift";
 
@@ -178,7 +179,7 @@ function SessionRow({ session }: { session: SessionSummary }) {
           href={`/interview/${session.id}`}
           className={`${ROW} ${ROW_LINK} border-accent shadow-[0_0_0_4px_var(--color-accent-subtle)]`}
         >
-          <div className="flex min-w-[240px] flex-1 flex-col gap-2">
+          <div className="flex min-w-60 flex-1 flex-col gap-2">
             {name}
             {tags()}
           </div>
@@ -188,7 +189,7 @@ function SessionRow({ session }: { session: SessionSummary }) {
               {session.total_questions}
               {left !== null && `, ${left} min left`}
             </span>
-            <span className="btn-brand rounded-[10px] px-[18px] py-2.5 text-sm font-semibold transition-[background,box-shadow,transform] duration-200">
+            <span className="btn-brand rounded-[10px] px-4.5 py-2.5 text-sm font-semibold transition-[background,box-shadow,transform] duration-200">
               Continue interview
             </span>
           </div>
@@ -199,7 +200,7 @@ function SessionRow({ session }: { session: SessionSummary }) {
     case "READY":
       return (
         <Link href={`/interview/${session.id}`} className={`${ROW} ${ROW_LINK} border-line shadow-card`}>
-          <div className="flex min-w-[240px] flex-1 flex-col gap-2">
+          <div className="flex min-w-60 flex-1 flex-col gap-2">
             {name}
             {tags()}
           </div>
@@ -207,7 +208,7 @@ function SessionRow({ session }: { session: SessionSummary }) {
             <span className="tabular text-sm text-ink-2">
               {session.total_questions} questions ready
             </span>
-            <span className="btn-brand rounded-[10px] px-[18px] py-2.5 text-sm font-semibold transition-[background,box-shadow,transform] duration-200">
+            <span className="btn-brand rounded-[10px] px-4.5 py-2.5 text-sm font-semibold transition-[background,box-shadow,transform] duration-200">
               Start interview
             </span>
           </div>
@@ -220,13 +221,13 @@ function SessionRow({ session }: { session: SessionSummary }) {
       const when = session.updated_at ?? session.created_at;
       return (
         <Link href={`/reports/${session.id}`} className={`${ROW} ${ROW_LINK} border-line shadow-card`}>
-          <div className="flex min-w-[240px] flex-1 flex-col gap-2">
+          <div className="flex min-w-60 flex-1 flex-col gap-2">
             {name}
             {tags(
               <span className="ml-1 text-[13px] text-ink-3">Finished {humanWhen(when)}</span>,
             )}
           </div>
-          <div className="flex items-center gap-[18px]">
+          <div className="flex items-center gap-4.5">
             {session.overall != null && (
               <div className="text-right">
                 <div className="tabular font-display text-[28px] leading-none font-bold">
@@ -242,7 +243,7 @@ function SessionRow({ session }: { session: SessionSummary }) {
               View report
               <ChevronRight
                 aria-hidden="true"
-                className="size-4 transition-transform duration-250 group-hover:translate-x-[3px]"
+                className="size-4 transition-transform duration-250 group-hover:translate-x-0.75"
               />
             </span>
           </div>
@@ -256,7 +257,7 @@ function SessionRow({ session }: { session: SessionSummary }) {
     case "GENERATING_QS":
       return (
         <Link href={`/interview/${session.id}`} className={`${ROW} ${ROW_LINK} border-line shadow-card`}>
-          <div className="flex min-w-[240px] flex-1 flex-col gap-2">
+          <div className="flex min-w-60 flex-1 flex-col gap-2">
             {name}
             {tags()}
           </div>
@@ -265,7 +266,7 @@ function SessionRow({ session }: { session: SessionSummary }) {
             {session.state === "EVALUATING" ? "Scoring your answers" : "Writing your questions"}
             <ChevronRight
               aria-hidden="true"
-              className="size-4 text-accent transition-transform duration-250 group-hover:translate-x-[3px]"
+              className="size-4 text-accent transition-transform duration-250 group-hover:translate-x-0.75"
             />
           </span>
         </Link>
@@ -294,7 +295,11 @@ function SessionRow({ session }: { session: SessionSummary }) {
 function NewInterview() {
   const router = useRouter();
   const [source, setSource] = useState<"file" | "paste">("file");
-  const [file, setFile] = useState<File | null>(null);
+  // A resume chosen on the landing page before sign-in arrives pre-selected.
+  // Peek in the initializer and clear in an effect: Strict Mode runs
+  // initializers twice, and a take-once read would hand the second run null.
+  const [file, setFile] = useState<File | null>(() => peekPendingResume());
+  useEffect(() => clearPendingResume(), []);
   const [text, setText] = useState("");
   const [stage, setStage] = useState<Stage>("compose");
   const [resume, setResume] = useState<Resume | null>(null);
@@ -355,24 +360,12 @@ function NewInterview() {
     }
   }
 
-  /**
-   * Check what we can before sending anything: the extension and the size.
-   * The server checks again — properly, from the file's bytes — so this is
-   * only about failing fast with a clear message, not about trust.
-   */
+  /** Check what we can (extension, size) before sending anything. */
   function pickFile(candidate: File | undefined) {
     if (!candidate) return;
-    setError(null);
-    const name = candidate.name.toLowerCase();
-    if (!RESUME_EXTENSIONS.some((ext) => name.endsWith(ext))) {
-      setError("Choose a PDF, DOCX or TXT file.");
-      return;
-    }
-    if (candidate.size > RESUME_MAX_BYTES) {
-      setError(`That file is ${formatBytes(candidate.size)} — the limit is 2 MB.`);
-      return;
-    }
-    setFile(candidate);
+    const problem = resumeProblem(candidate);
+    setError(problem);
+    if (!problem) setFile(candidate);
   }
 
   /** Paste and file differ only in how the resume row gets created. */
@@ -435,7 +428,7 @@ function NewInterview() {
     <Card
       as="aside"
       aria-labelledby="new"
-      className="flex w-full flex-col gap-5 p-6 sm:p-7 lg:sticky lg:top-[92px] lg:w-[420px] lg:shrink-0"
+      className="flex w-full flex-col gap-5 p-6 sm:p-7 lg:sticky lg:top-23 lg:w-105 lg:shrink-0"
     >
       <div className="flex flex-col gap-1.5">
         <h2
@@ -471,7 +464,7 @@ function NewInterview() {
                     onClick={() => file && submit(() => uploadResume(file), file.name)}
                     disabled={!file}
                   >
-                    <Upload aria-hidden="true" className="size-[18px]" />
+                    <Upload aria-hidden="true" className="size-4.5" />
                     Upload resume
                   </Button>
                 </>
@@ -587,7 +580,7 @@ function NewInterview() {
                   maxLength={20000}
                   placeholder={`- Build async Python services on PostgreSQL
 - Operate Kubernetes clusters`}
-                  className="mt-2 w-full resize-y rounded-[12px] border border-line-soft bg-field px-3.5 py-3 text-[14px] leading-relaxed text-ink outline-none placeholder:text-ink-3 focus:border-accent"
+                  className={`${FIELD_CLASS} mt-2 resize-y leading-relaxed`}
                 />
               </details>
 
@@ -597,7 +590,7 @@ function NewInterview() {
                     "Creating…"
                   ) : (
                     <>
-                      <Sparkles aria-hidden="true" className="size-[18px]" />
+                      <Sparkles aria-hidden="true" className="size-4.5" />
                       Generate questions
                     </>
                   )}
@@ -730,10 +723,4 @@ function FileDrop({ file, onPick }: { file: File | null; onPick: (file?: File) =
       )}
     </label>
   );
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

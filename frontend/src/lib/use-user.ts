@@ -5,10 +5,11 @@
  *
  * There is no client-side JWT decoding here on purpose: the only authority on
  * whether a token is still good is `GET /auth/me`. A failure means the token
- * is gone or dead, and the caller is sent to /login.
+ * is gone or dead, and the caller is sent to /login — with `next` set to the
+ * page they were on, so signing in brings them back to it.
  */
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { me } from "./api";
 import { clearTokens, getAccessToken, TOKENS_CHANGED, type User } from "./auth";
@@ -45,6 +46,24 @@ function useHasToken(): boolean | undefined {
   );
 }
 
+/**
+ * True between a deliberate sign-out and the signed-in pages unmounting.
+ * Without it, clearing the tokens looks exactly like an expired session to
+ * every mounted `useUser`, whose redirect to /login would land after — and
+ * override — sign-out's own navigation to the landing page.
+ */
+let signingOut = false;
+
+/** Sign out and go to the public landing page. */
+export function useSignOut(): () => void {
+  const router = useRouter();
+  return useCallback(() => {
+    signingOut = true;
+    clearTokens();
+    router.replace("/");
+  }, [router]);
+}
+
 export function useUser({ redirectTo = "/login" }: { redirectTo?: string | null } = {}) {
   const router = useRouter();
   const hasToken = useHasToken();
@@ -54,7 +73,9 @@ export function useUser({ redirectTo = "/login" }: { redirectTo?: string | null 
   useEffect(() => {
     if (hasToken === undefined) return; // still hydrating
     if (!hasToken) {
-      if (redirectTo) router.replace(redirectTo);
+      if (redirectTo && !signingOut) {
+        router.replace(redirectTo === "/login" ? loginHref(window.location.pathname) : redirectTo);
+      }
       return;
     }
 
@@ -72,6 +93,16 @@ export function useUser({ redirectTo = "/login" }: { redirectTo?: string | null 
     };
   }, [hasToken, router, redirectTo]);
 
+  // Sign-out is over once the pages that were showing have unmounted; from
+  // then on a missing token means "send to sign-in" again (e.g. pressing Back
+  // into /interview).
+  useEffect(
+    () => () => {
+      signingOut = false;
+    },
+    [],
+  );
+
   return {
     user: hasToken ? (fetched ?? null) : null,
     // Three states: asking (loading), signed in (user), signed out (neither).
@@ -82,4 +113,24 @@ export function useUser({ redirectTo = "/login" }: { redirectTo?: string | null 
 /** Where a user lands after sign-in, and where "home" links point. */
 export function homeFor(user: Pick<User, "role">): string {
   return user.role === "recruiter" ? "/recruiter/review" : "/interview";
+}
+
+/** The sign-in page, remembering where to go afterwards. */
+export function loginHref(next?: string): string {
+  return next && next !== "/" ? `/login?next=${encodeURIComponent(next)}` : "/login";
+}
+
+/**
+ * Where to send someone right after they sign in: `next` if it is one of their
+ * own pages, otherwise their home. Matching on the role's own path prefixes
+ * (rather than "anything starting with /") is what keeps `next` from being an
+ * open redirect — `//evil.example` or `/\evil.example` match neither — and
+ * stops a recruiter being sent to a candidate page that would only 403.
+ */
+export function destinationFor(user: Pick<User, "role">, next: string | null): string {
+  const prefixes = user.role === "recruiter" ? ["/recruiter"] : ["/interview", "/reports"];
+  const ok =
+    next !== null &&
+    prefixes.some((p) => next === p || next.startsWith(`${p}/`) || next.startsWith(`${p}?`));
+  return ok ? next : homeFor(user);
 }

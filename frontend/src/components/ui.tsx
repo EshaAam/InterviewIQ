@@ -41,7 +41,7 @@ const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
 
 const BUTTON_SIZES: Record<ButtonSize, string> = {
   sm: "min-h-9 px-3.5 text-[13px]",
-  md: "min-h-[46px] px-[22px] text-[15px]",
+  md: "min-h-11.5 px-5.5 text-[15px]",
   lg: "min-h-12 px-6 text-[15px]",
 };
 
@@ -112,7 +112,7 @@ export function Shell({
   width?: "wide" | "medium" | "narrow";
   className?: string;
 }) {
-  const max = { wide: "max-w-[1120px]", medium: "max-w-[860px]", narrow: "max-w-[620px]" }[width];
+  const max = { wide: "max-w-280", medium: "max-w-215", narrow: "max-w-155" }[width];
   return (
     <main className={`mx-auto w-full ${max} px-4 pt-10 pb-18 sm:px-6 sm:pt-12 ${className}`}>
       <FadeIn>{children}</FadeIn>
@@ -180,7 +180,7 @@ const TONES: Record<Tone, string> = {
 export function Chip({ children, tone = "neutral" }: { children: ReactNode; tone?: Tone }) {
   return (
     <span
-      className={`inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full px-2.5 py-[3px] text-xs font-semibold ${TONES[tone]}`}
+      className={`inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.75 text-xs font-semibold ${TONES[tone]}`}
     >
       {children}
     </span>
@@ -249,7 +249,7 @@ export function StatusPill({ state }: { state: SessionState }) {
       // The raw value stays reachable for whoever is matching this against an
       // API response or a database row.
       title={state}
-      className={`inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full px-2.5 py-[3px] text-xs font-semibold tracking-[0.02em] ${TONES[STATE_TONE[state]]}`}
+      className={`inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.75 text-xs font-semibold tracking-[0.02em] ${TONES[STATE_TONE[state]]}`}
     >
       {LIVE.has(state) && <PulseDot />}
       {STATE_LABEL[state]}
@@ -367,11 +367,11 @@ export function StatCard({
   icon?: ReactNode;
 }) {
   return (
-    <Card className="group flex min-w-[180px] flex-1 flex-col gap-1.5 px-5 py-[18px] transition-[transform,box-shadow,border-color] duration-250 ease-out-soft hover:-translate-y-0.5 hover:border-accent-mid hover:shadow-lift">
+    <Card className="group flex min-w-45 flex-1 flex-col gap-1.5 px-5 py-4.5 transition-[transform,box-shadow,border-color] duration-250 ease-out-soft hover:-translate-y-0.5 hover:border-accent-mid hover:shadow-lift">
       <span className="flex items-center justify-between text-xs font-semibold tracking-[0.06em] text-ink-3 uppercase">
         {label}
         {icon && (
-          <span className="flex size-8 items-center justify-center rounded-[10px] bg-accent-subtle text-accent transition-transform duration-300 group-hover:rotate-[-6deg]">
+          <span className="flex size-8 items-center justify-center rounded-[10px] bg-accent-subtle text-accent transition-transform duration-300 group-hover:-rotate-6">
             {icon}
           </span>
         )}
@@ -396,7 +396,7 @@ export function ScoreBox({
   tone: string;
 }) {
   return (
-    <div className="flex min-w-[140px] flex-1 flex-col gap-1 rounded-[14px] bg-canvas px-4 py-3.5">
+    <div className="flex min-w-35 flex-1 flex-col gap-1 rounded-[14px] bg-canvas px-4 py-3.5">
       <span className="text-[11px] font-semibold tracking-[0.06em] text-ink-3 uppercase">
         {label}
       </span>
@@ -486,7 +486,7 @@ export function Skeleton({ className = "" }: { className?: string }) {
   return (
     <div
       aria-hidden="true"
-      className={`animate-pulse rounded-[12px] bg-linear-to-r from-track via-line-soft to-track ${className}`}
+      className={`animate-pulse rounded-control bg-linear-to-r from-track via-line-soft to-track ${className}`}
     />
   );
 }
@@ -586,7 +586,7 @@ export function CitedSources({
       {sources.map((source) => (
         <details
           key={source.chunk_id}
-          className="rounded-[12px] border border-line-soft bg-field px-3.5 py-2.5"
+          className="rounded-control border border-line-soft bg-field px-3.5 py-2.5"
         >
           <summary className="cursor-pointer list-none text-[13px] font-medium text-ink marker:content-none">
             <span className="text-accent">{source.heading_path}</span>

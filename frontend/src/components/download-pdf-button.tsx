@@ -39,7 +39,7 @@ export function DownloadPdfButton({
         </span>
       )}
       <Button variant="secondary" onClick={download} loading={busy}>
-        {!busy && <Download aria-hidden="true" className="size-[18px]" />}
+        {!busy && <Download aria-hidden="true" className="size-4.5" />}
         {busy ? "Preparing…" : "Download PDF"}
       </Button>
     </span>

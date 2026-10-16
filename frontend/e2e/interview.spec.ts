@@ -8,8 +8,10 @@ import { expect, test, type Page } from "@playwright/test";
 
 async function signUp(page: Page): Promise<string> {
   const email = `e2e-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`;
+  // The landing page is public; starting an upload is what asks for an account.
   await page.goto("/");
-  await expect(page).toHaveURL(/\/login$/); // no token → sent to sign in
+  await page.getByRole("button", { name: "Upload your resume" }).first().click();
+  await expect(page).toHaveURL(/\/login\?next=%2Finterview$/);
   await page.getByRole("button", { name: "No account? Create one." }).click();
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill("e2e-password-123");
@@ -76,6 +78,8 @@ test("signing in works from the keyboard alone", async ({ page }) => {
   const email = await signUp(page);
   // Sign out, then back in without touching the mouse.
   await page.getByRole("button", { name: /^Sign out/ }).click();
+  await expect(page).toHaveURL(/\/$/); // back to the public landing page
+  await page.getByRole("link", { name: "Sign in" }).first().click();
   await expect(page).toHaveURL(/\/login$/);
 
   await page.keyboard.press("Tab"); // → Email
@@ -85,6 +89,16 @@ test("signing in works from the keyboard alone", async ({ page }) => {
   await page.keyboard.type("e2e-password-123");
   await page.keyboard.press("Enter"); // submits the form
   await expect(page).toHaveURL(/\/interview$/);
+});
+
+test("the landing page is public and the app is not", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Interviews that grade");
+  await expect(page).toHaveURL(/\/$/); // no redirect without a token
+
+  // A signed-out visit to an app page goes to sign-in, remembering the page.
+  await page.goto("/interview");
+  await expect(page).toHaveURL(/\/login\?next=%2Finterview$/);
 });
 
 test("an unknown address shows the not-found page", async ({ page }) => {

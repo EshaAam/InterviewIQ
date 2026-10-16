@@ -455,7 +455,7 @@ export default function InterviewSessionPage({
     <Shell width="medium">
       <div className="flex flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex min-w-[260px] flex-1 flex-col gap-2.5">
+          <div className="flex min-w-65 flex-1 flex-col gap-2.5">
             <span className="tabular font-semibold">
               {outOfQuestions
                 ? `All ${total} answered`
@@ -467,7 +467,7 @@ export default function InterviewSessionPage({
               aria-valuemin={0}
               aria-valuemax={total}
               aria-valuenow={answered}
-              className="grid max-w-[320px] gap-1.5"
+              className="grid max-w-80 gap-1.5"
               style={{ gridTemplateColumns: `repeat(${total}, minmax(0, 1fr))` }}
             >
               {Array.from({ length: total }, (_, i) => (
@@ -644,7 +644,7 @@ function TimerChip({
   if (countdown.passed) {
     return (
       <div className="flex items-center gap-2.5 rounded-control border border-[#efc6c2] bg-bad-subtle px-4 py-2.5 text-sm font-semibold text-bad">
-        <Hourglass aria-hidden="true" className="size-[18px]" />
+        <Hourglass aria-hidden="true" className="size-4.5" />
         Time&apos;s up — checking with the server…
       </div>
     );
@@ -662,7 +662,7 @@ function TimerChip({
         transition={countdown.urgent ? { duration: 0.6, repeat: Infinity, repeatDelay: 2 } : {}}
         className={countdown.urgent ? "text-warn" : "text-accent"}
       >
-        <Timer aria-hidden="true" className="size-[18px]" />
+        <Timer aria-hidden="true" className="size-4.5" />
       </motion.span>
       <span
         className={`tabular font-display text-[22px] font-bold tracking-[0.01em] ${
@@ -715,7 +715,7 @@ function ConfirmFinish({
         exit={{ opacity: 0, y: 8, scale: 0.98 }}
         transition={{ duration: 0.25, ease: EASE }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-[460px]"
+        className="w-full max-w-115"
       >
         <Card className="flex flex-col gap-5 p-7">
           <span className="flex size-11 items-center justify-center rounded-xl bg-warn-subtle text-warn">
@@ -812,7 +812,7 @@ function Scoring({
   ] as const;
 
   return (
-    <Shell width="narrow" className="sm:pt-[72px]">
+    <Shell width="narrow" className="sm:pt-18">
       <div className="flex flex-col gap-5">
         <Card as="section" aria-labelledby="t" className="flex flex-col gap-7 rounded-[24px] p-7 sm:p-10">
           <div className="flex flex-col gap-2.5">

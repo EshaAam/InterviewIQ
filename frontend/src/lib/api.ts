@@ -9,6 +9,7 @@
  * in the same commit — nothing else in the app knows the wire shape.
  */
 
+import { formatBytes } from "./format";
 import {
   clearTokens,
   getAccessToken,
@@ -349,6 +350,16 @@ async function errorDetail(response: Response): Promise<string> {
   return `Request failed (${response.status})`;
 }
 
+/**
+ * Fire-and-forget liveness ping. The free Render instance sleeps after 15
+ * idle minutes and takes about a minute to wake; the public landing page calls
+ * this on arrival so that by the time someone has read it and signed in, the
+ * API is already up. Failure is irrelevant, so nothing is surfaced.
+ */
+export function wakeBackend(): void {
+  fetch(`${BASE_URL}/health`, { cache: "no-store" }).catch(() => {});
+}
+
 // --- Auth ---
 
 export async function login(email: string, password: string): Promise<TokenPair> {
@@ -390,6 +401,22 @@ export function createResume(text: string, mime = "text/plain"): Promise<Resume>
 /** Mirrors the backend's RESUME_MAX_BYTES, so an oversize file is caught before upload. */
 export const RESUME_MAX_BYTES = 2 * 1024 * 1024;
 export const RESUME_EXTENSIONS = [".pdf", ".docx", ".txt"] as const;
+
+/**
+ * What's wrong with a chosen file, in a sentence, or null if it looks fine.
+ * Only the extension and size: the server checks again, properly, from the
+ * bytes — this exists to fail fast with a clear message, not for trust.
+ */
+export function resumeProblem(file: File): string | null {
+  const name = file.name.toLowerCase();
+  if (!RESUME_EXTENSIONS.some((ext) => name.endsWith(ext))) {
+    return "Choose a PDF, DOCX or TXT file.";
+  }
+  if (file.size > RESUME_MAX_BYTES) {
+    return `That file is ${formatBytes(file.size)} — the limit is 2 MB.`;
+  }
+  return null;
+}
 
 /**
  * 202 — by the time this returns, the backend has already checked the file and

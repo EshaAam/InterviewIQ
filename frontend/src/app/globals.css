@@ -86,6 +86,14 @@ body {
   letter-spacing: -0.035em;
 }
 
+/* In-page anchors on the landing page glide; route changes stay instant
+   (`data-scroll-behavior` on <html> tells Next to override it for those). */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
 ::selection {
   background: var(--color-accent-ring);
   color: var(--color-ink);
