@@ -56,3 +56,12 @@ services:
       # 0.1 CPU: more threads only add contention and memory.
       - key: EMBEDDING_THREADS
         value: "1"
+
+      # A free instance sleeps after 15 idle minutes and loses its in-memory
+      # queue on every restart, so lost jobs are routine here, not rare. Re-queue
+      # them sooner than the 10/30-minute defaults; stages are idempotent, so a
+      # merely slow job re-dispatched early costs a duplicate call, nothing more.
+      - key: REAPER_CREATED_AFTER_MINUTES
+        value: "5"
+      - key: REAPER_EVALUATING_AFTER_MINUTES
+        value: "10"
