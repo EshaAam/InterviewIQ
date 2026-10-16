@@ -18,7 +18,12 @@ import {
   type User,
 } from "./auth";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+// Trailing slashes stripped: every path below starts with one, and a pasted
+// ".../api/v1/" would otherwise produce "//auth/register", which 404s.
+const BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1").replace(
+  /\/+$/,
+  "",
+);
 
 export class ApiError extends Error {
   constructor(
