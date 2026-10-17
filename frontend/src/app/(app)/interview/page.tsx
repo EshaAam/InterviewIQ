@@ -96,7 +96,7 @@ export default function MyInterviewsPage() {
           // On a phone the start card sits below the list; this jumps to it.
           <a
             href="#new-interview"
-            className="group inline-flex min-h-12 items-center gap-2 rounded-full bg-white px-6 text-[15px] font-semibold text-brand shadow-[0_16px_40px_-16px_rgba(0,0,0,0.6)] transition-[transform,background] duration-250 ease-out-soft hover:-translate-y-0.5 hover:bg-accent-soft lg:hidden"
+            className="group inline-flex min-h-12 items-center gap-2 btn-glow rounded-full px-6 text-[15px] font-semibold transition-[transform,background,box-shadow] duration-250 ease-out-soft hover:-translate-y-0.5 lg:hidden"
           >
             <Plus
               aria-hidden="true"

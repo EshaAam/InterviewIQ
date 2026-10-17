@@ -119,7 +119,7 @@ export function Hero({ signedIn, onStart }: { signedIn: boolean; onStart: (file?
             <button
               type="button"
               onClick={() => onStart()}
-              className="group inline-flex min-h-13 cursor-pointer items-center gap-2 rounded-full bg-white px-7 text-[15px] font-semibold text-brand shadow-[0_16px_40px_-16px_rgba(0,0,0,0.6)] transition-[transform,box-shadow,background] duration-250 ease-out-soft hover:-translate-y-0.5 hover:bg-accent-soft hover:shadow-[0_20px_44px_-14px_rgba(43,179,166,0.55)] active:translate-y-0"
+              className="group inline-flex min-h-13 cursor-pointer items-center gap-2 btn-glow rounded-full px-7 text-[15px] font-semibold transition-[transform,box-shadow,background] duration-250 ease-out-soft hover:-translate-y-0.5 active:translate-y-0"
             >
               <Upload
                 aria-hidden="true"

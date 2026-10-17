@@ -155,7 +155,7 @@ function OwnerCard() {
       <div className="relative mt-4 flex items-center gap-2">
         <a
           href={`mailto:${OWNER.email}`}
-          className="group/mail flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-full bg-white px-4 text-sm font-semibold text-brand transition-[background,transform,box-shadow] duration-250 ease-out-soft hover:-translate-y-px hover:bg-accent-soft hover:shadow-[0_12px_28px_-14px_rgba(43,179,166,0.8)]"
+          className="group/mail flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-full border border-glow/30 bg-linear-to-r from-[#16545e]/70 to-[#0f3d44]/70 px-4 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-[background,border-color,transform,box-shadow] duration-250 ease-out-soft hover:-translate-y-px hover:border-glow/60 hover:from-[#1b6570]/80 hover:to-[#134a52]/80 hover:shadow-[0_12px_28px_-14px_rgba(43,179,166,0.7)]"
         >
           <Mail aria-hidden="true" className="size-4 shrink-0" />
           <span className="truncate">{OWNER.email}</span>

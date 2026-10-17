@@ -13,6 +13,22 @@ import { EASE } from "./motion";
 type NavLink = { href: string; label: string; match?: string[] };
 
 /**
+ * The nav's frosted surface: deep teal glass with a faint watercolour sheen
+ * across it, blurred and saturated so whatever scrolls underneath shows
+ * through as colour, not detail. Opaque enough that white text clears AA over
+ * the light app pages as well as the dark landing.
+ */
+const GLASS =
+  "border-white/12 bg-linear-to-r from-[#0f3d44]/90 via-[#16545e]/85 to-[#0f3d44]/90 " +
+  "shadow-[0_16px_40px_-18px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.08)] " +
+  "backdrop-blur-xl backdrop-saturate-150";
+
+/** Dropdowns sit over page text, so they are glass in colour only: fully opaque. */
+const MENU_GLASS =
+  "border-white/12 bg-linear-to-b from-[#134a52] to-[#0c333a] " +
+  "shadow-[0_24px_48px_-20px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl";
+
+/**
  * The link set is driven by who is signed in, so a candidate is never shown a
  * recruiter route that would 403 on arrival. Section anchors point at the
  * landing page, as `#id` when already on it and `/#id` from anywhere else.
@@ -80,15 +96,14 @@ export function SiteNav({
     setMenuOpen(false);
   }
 
-  const light = overDark && !scrolled && !menuOpen;
+  // Clear over a dark hero at the top of the page; tinted glass everywhere
+  // else. The text is light either way, and the glass is opaque enough that it
+  // stays readable over the light content of the app pages too.
+  const clear = overDark && !scrolled && !menuOpen;
   const pill =
     "min-h-10 items-center gap-1.5 rounded-full px-4 text-sm font-semibold whitespace-nowrap " +
     "transition-[background,border-color,color,box-shadow,transform] duration-250 ease-out-soft";
-  const uploadClass = `hidden cursor-pointer sm:inline-flex ${pill} ${
-    light
-      ? "bg-white text-brand shadow-[0_8px_24px_-12px_rgba(0,0,0,0.5)] hover:-translate-y-px hover:bg-accent-soft"
-      : "btn-brand"
-  }`;
+  const uploadClass = `hidden cursor-pointer sm:inline-flex ${pill} btn-glow hover:-translate-y-px`;
 
   return (
     <motion.header
@@ -100,13 +115,11 @@ export function SiteNav({
       <div className="relative mx-auto max-w-280">
         <div
           className={`flex h-15 items-center gap-3 rounded-full border pr-2 pl-4 transition-[background-color,border-color,box-shadow] duration-300 ease-out-soft sm:gap-4 sm:pl-5 ${
-            light
-              ? "border-transparent bg-transparent"
-              : "border-line/80 bg-surface/85 shadow-[0_12px_32px_-18px_rgba(15,46,53,0.4)] backdrop-blur-xl"
+            clear ? "border-transparent bg-transparent" : GLASS
           }`}
         >
           <Link href="/" aria-label="InterviewIQ home" className="shrink-0 rounded-[10px]">
-            <Logo tone={light ? "light" : "dark"} />
+            <Logo tone="light" />
           </Link>
 
           <nav
@@ -126,28 +139,20 @@ export function SiteNav({
                   onBlur={() => setHovered(null)}
                   className={`relative rounded-full px-4 py-2 text-[15px] transition-colors duration-200 ${
                     active ? "font-semibold" : "font-medium"
-                  } ${
-                    light
-                      ? active
-                        ? "text-white"
-                        : "text-ink-on-dark hover:text-white"
-                      : active
-                        ? "text-accent-strong"
-                        : "text-ink-2 hover:text-ink"
-                  }`}
+                  } ${active ? "text-white" : "text-ink-on-dark hover:text-white"}`}
                 >
                   {active && (
                     // The current page's pill slides between links on navigation.
                     <motion.span
                       layoutId="site-nav-active"
-                      className={`absolute inset-0 rounded-full ${light ? "bg-white/15" : "bg-accent-subtle"}`}
+                      className="absolute inset-0 rounded-full bg-white/15 ring-1 ring-white/10"
                       transition={{ type: "spring", stiffness: 420, damping: 34 }}
                     />
                   )}
                   {hovered === link.href && !active && (
                     <motion.span
                       layoutId="site-nav-hover"
-                      className={`absolute inset-0 rounded-full ${light ? "bg-white/10" : "bg-accent-hover"}`}
+                      className="absolute inset-0 rounded-full bg-white/10"
                       transition={{ type: "spring", stiffness: 450, damping: 36 }}
                     />
                   )}
@@ -159,16 +164,12 @@ export function SiteNav({
 
           <div className="ml-auto flex items-center gap-2 md:ml-0">
             {user ? (
-              <AccountMenu user={user} light={light} />
+              <AccountMenu user={user} />
             ) : (
               <>
                 <Link
                   href={loginHref()}
-                  className={`inline-flex ${pill} border ${
-                    light
-                      ? "border-white/25 text-white hover:border-white/50 hover:bg-white/10"
-                      : "border-line-strong text-ink hover:border-accent hover:bg-accent-soft hover:text-accent-strong"
-                  }`}
+                  className={`inline-flex ${pill} border border-white/25 text-white hover:border-white/50 hover:bg-white/10`}
                 >
                   Sign in
                 </Link>
@@ -191,9 +192,7 @@ export function SiteNav({
               aria-label={menuOpen ? "Close menu" : "Open menu"}
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen((open) => !open)}
-              className={`relative flex size-10 cursor-pointer items-center justify-center rounded-full transition-colors duration-200 md:hidden ${
-                light ? "text-white hover:bg-white/10" : "text-ink hover:bg-accent-hover"
-              }`}
+              className="relative flex size-10 cursor-pointer items-center justify-center rounded-full text-white transition-colors duration-200 hover:bg-white/10 md:hidden"
             >
               <AnimatePresence mode="wait" initial={false}>
                 <motion.span
@@ -223,7 +222,7 @@ export function SiteNav({
               exit={{ opacity: 0, y: -8, scale: 0.98 }}
               transition={{ duration: 0.25, ease: EASE }}
               style={{ transformOrigin: "top center" }}
-              className="absolute inset-x-0 top-[calc(100%+8px)] rounded-3xl border border-line bg-surface/95 p-2 shadow-[0_24px_48px_-20px_rgba(15,46,53,0.45)] backdrop-blur-xl md:hidden"
+              className={`absolute inset-x-0 top-[calc(100%+8px)] rounded-3xl border p-2 md:hidden ${MENU_GLASS}`}
             >
               {links.map((link, i) => {
                 const active = isActive(link, pathname);
@@ -240,8 +239,8 @@ export function SiteNav({
                       aria-current={active ? "page" : undefined}
                       className={`flex items-center rounded-2xl px-4 py-3 text-base font-medium transition-colors ${
                         active
-                          ? "bg-accent-subtle font-semibold text-accent-strong"
-                          : "text-ink hover:bg-accent-hover"
+                          ? "bg-white/15 font-semibold text-white"
+                          : "text-ink-on-dark hover:bg-white/10 hover:text-white"
                       }`}
                     >
                       {link.label}
@@ -273,7 +272,7 @@ export function SiteNav({
 }
 
 /** Initials that open a small account card: who you are, where to go, sign out. */
-function AccountMenu({ user, light }: { user: User; light: boolean }) {
+function AccountMenu({ user }: { user: User }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const signOut = useSignOut();
@@ -307,11 +306,9 @@ function AccountMenu({ user, light }: { user: User; light: boolean }) {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Account menu (${user.email})`}
-        className={`flex size-11 cursor-pointer items-center justify-center rounded-full text-sm font-semibold transition-[background,box-shadow,transform] duration-200 hover:scale-105 ${
-          light
-            ? "bg-white/12 text-white ring-1 ring-white/25 hover:bg-white/20"
-            : "bg-accent-subtle text-accent-strong ring-1 ring-accent-ring hover:ring-accent-mid"
-        } ${open ? "ring-2" : ""}`}
+        className={`flex size-11 cursor-pointer items-center justify-center rounded-full bg-white/12 text-sm font-semibold text-white ring-1 ring-white/25 transition-[background,box-shadow,transform] duration-200 hover:scale-105 hover:bg-white/20 ${
+          open ? "ring-2" : ""
+        }`}
       >
         {initials}
       </button>
@@ -326,7 +323,7 @@ function AccountMenu({ user, light }: { user: User; light: boolean }) {
             exit={{ opacity: 0, y: -6, scale: 0.96 }}
             transition={{ duration: 0.2, ease: EASE }}
             style={{ transformOrigin: "top right" }}
-            className="absolute top-[calc(100%+12px)] right-0 w-72 rounded-2xl border border-line bg-surface/95 p-2 text-ink shadow-[0_24px_48px_-20px_rgba(15,46,53,0.45)] backdrop-blur-xl"
+            className={`absolute top-[calc(100%+12px)] right-0 w-72 rounded-2xl border p-2 text-white ${MENU_GLASS}`}
           >
             <div className="flex items-center gap-3 px-3 py-3">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-glow to-accent font-display text-sm font-bold text-white">
@@ -336,36 +333,36 @@ function AccountMenu({ user, light }: { user: User; light: boolean }) {
                 <span className="truncate text-sm font-semibold" title={user.email}>
                   {user.email}
                 </span>
-                <span className="text-xs text-ink-3">
+                <span className="text-xs text-ink-on-dark">
                   {user.role === "recruiter" ? "Recruiter account" : "Candidate account"}
                 </span>
               </span>
             </div>
-            <div className="my-1 h-px bg-line-soft" />
+            <div className="my-1 h-px bg-white/10" />
             <Link
               role="menuitem"
               href={homeFor(user)}
               onClick={() => setOpen(false)}
-              className={`${item} hover:bg-accent-hover`}
+              className={`${item} text-ink-on-dark hover:bg-white/10 hover:text-white`}
             >
-              <LayoutList aria-hidden="true" className="size-4 text-accent" />
+              <LayoutList aria-hidden="true" className="size-4 text-[#9ff0e6]" />
               {user.role === "recruiter" ? "Review queue" : "My interviews"}
             </Link>
             <Link
               role="menuitem"
               href="/"
               onClick={() => setOpen(false)}
-              className={`${item} hover:bg-accent-hover`}
+              className={`${item} text-ink-on-dark hover:bg-white/10 hover:text-white`}
             >
-              <House aria-hidden="true" className="size-4 text-accent" />
+              <House aria-hidden="true" className="size-4 text-[#9ff0e6]" />
               Home
             </Link>
-            <div className="my-1 h-px bg-line-soft" />
+            <div className="my-1 h-px bg-white/10" />
             <button
               type="button"
               role="menuitem"
               onClick={signOut}
-              className={`${item} text-bad hover:bg-bad-subtle`}
+              className={`${item} text-[#ffb59a] hover:bg-[#9a4416]/30 hover:text-[#ffd2bd]`}
             >
               <LogOut aria-hidden="true" className="size-4" />
               Sign out

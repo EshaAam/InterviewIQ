@@ -42,7 +42,7 @@ export function Landing() {
   return (
     <>
       <SiteNav user={user} overDark onStart={() => start()} />
-      <main className="flex flex-1 flex-col">
+      <main className="flex flex-1 flex-col bg-[#0b2e34]">
         <Hero signedIn={user !== null} onStart={start} />
         <TopicMarquee />
         <HowItWorks />

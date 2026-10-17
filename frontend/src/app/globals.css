@@ -116,10 +116,50 @@ body {
   }
 }
 
+/*
+ * The call to action on dark teal: a lit gradient of the page's own teal with
+ * a faint halo, rather than a white slab. White text measures ~5:1 against
+ * the gradient's midpoint (AA).
+ */
+@utility btn-glow {
+  background: linear-gradient(180deg, #1a9187 0%, #0d6a63 100%);
+  color: var(--color-ink-inv);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 0 0 1px rgba(95, 211, 198, 0.35),
+    0 14px 32px -14px rgba(43, 179, 166, 0.7);
+  &:hover:not(:disabled) {
+    background: linear-gradient(180deg, #1fa094 0%, #0f766e 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.28),
+      0 0 0 1px rgba(127, 224, 214, 0.55),
+      0 18px 40px -14px rgba(43, 179, 166, 0.85);
+  }
+}
+
 /* The overall-score hero and anything else that sits on the dark brand. */
 @utility surface-hero {
   background: radial-gradient(120% 140% at 100% 0%, #1b5a64 0%, #0f3d44 55%, #0c333a 100%);
   box-shadow: var(--shadow-hero);
+  color: var(--color-ink-inv);
+}
+
+/*
+ * The landing page below the hero: two deep teals, alternated section by
+ * section, each lit by a faint glow so the page reads as depth rather than a
+ * flat fill. White and --color-ink-on-dark text both clear AA on either.
+ */
+@utility surface-deep {
+  background:
+    radial-gradient(70% 55% at 50% 0%, rgba(43, 179, 166, 0.1), transparent 70%),
+    #0b2e34;
+  color: var(--color-ink-inv);
+}
+@utility surface-deeper {
+  background:
+    radial-gradient(60% 50% at 85% 10%, rgba(43, 179, 166, 0.08), transparent 70%),
+    radial-gradient(50% 45% at 10% 90%, rgba(10, 117, 112, 0.12), transparent 70%),
+    #092a30;
   color: var(--color-ink-inv);
 }
 

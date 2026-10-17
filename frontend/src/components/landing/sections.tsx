@@ -40,7 +40,7 @@ function SectionHeading({
   eyebrow,
   title,
   children,
-  tone = "dark",
+  tone = "light",
   align = "center",
 }: {
   eyebrow: string;
@@ -104,9 +104,12 @@ const TOPICS = [
 
 export function TopicMarquee() {
   return (
-    <section aria-label="Example interview topics" className="border-b border-line bg-surface py-9">
-      <p className="mb-6 text-center text-sm text-ink-3">
-        Questions follow the stack on <span className="font-semibold text-ink">your</span> resume,
+    <section
+      aria-label="Example interview topics"
+      className="surface-deeper border-y border-white/8 py-9"
+    >
+      <p className="mb-6 text-center text-sm text-ink-on-dark">
+        Questions follow the stack on <span className="font-semibold text-white">your</span> resume,
         for example
       </p>
       <div className="relative overflow-hidden mask-[linear-gradient(90deg,transparent,black_12%,black_88%,transparent)]">
@@ -119,8 +122,8 @@ export function TopicMarquee() {
         >
           {[...TOPICS, ...TOPICS].map((topic, i) => (
             <li key={i} aria-hidden={i >= TOPICS.length || undefined} className="pr-3">
-              <span className="inline-flex items-center gap-2 rounded-full border border-line bg-subtle px-4 py-2 text-sm font-medium whitespace-nowrap text-ink-2">
-                <span className="size-1.5 rounded-full bg-accent-mid" />
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/4 px-4 py-2 text-sm font-medium whitespace-nowrap text-ink-on-dark backdrop-blur-sm">
+                <span className="size-1.5 rounded-full bg-glow" />
                 {topic}
               </span>
             </li>
@@ -162,7 +165,7 @@ export function HowItWorks() {
   const progress = useSpring(scrollYProgress, { stiffness: 120, damping: 30 });
 
   return (
-    <section id="how" className="scroll-mt-24 bg-canvas py-24 sm:py-32">
+    <section id="how" className="surface-deep scroll-mt-24 py-24 sm:py-32">
       <div className={CONTAINER}>
         <SectionHeading eyebrow="How it works" title="From resume to report in four steps.">
           No generic question bank. Everything you&apos;re asked comes from what you wrote.
@@ -172,7 +175,7 @@ export function HowItWorks() {
           {/* The line that connects the steps fills in as you scroll past them. */}
           <div
             aria-hidden="true"
-            className="absolute top-7 right-[12.5%] left-[12.5%] hidden h-0.5 overflow-hidden rounded-full bg-line md:block"
+            className="absolute top-7 right-[12.5%] left-[12.5%] hidden h-0.5 overflow-hidden rounded-full bg-white/10 md:block"
           >
             <motion.div
               className="h-full origin-left bg-linear-to-r from-accent to-glow"
@@ -190,14 +193,16 @@ export function HowItWorks() {
                 transition={{ duration: 0.7, ease: EASE, delay: i * 0.1 }}
                 className="group flex h-full flex-col items-center gap-4 text-center"
               >
-                <span className="relative flex size-14 items-center justify-center rounded-2xl border border-line bg-surface text-accent shadow-card transition-[transform,box-shadow,border-color,background] duration-300 ease-out-soft group-hover:-translate-y-1 group-hover:border-accent group-hover:bg-accent-soft group-hover:shadow-lift">
+                <span className="relative flex size-14 items-center justify-center rounded-2xl border border-white/12 bg-white/5 text-[#9ff0e6] shadow-[0_12px_28px_-14px_rgba(0,0,0,0.6)] backdrop-blur-sm transition-[transform,box-shadow,border-color,background] duration-300 ease-out-soft group-hover:-translate-y-1 group-hover:border-glow/60 group-hover:bg-glow/15 group-hover:shadow-[0_18px_36px_-16px_rgba(43,179,166,0.45)]">
                   <Icon aria-hidden="true" className="size-6" />
-                  <span className="tabular absolute -top-2 -right-2 flex size-6 items-center justify-center rounded-full bg-brand text-[11px] font-bold text-white ring-4 ring-canvas">
+                  <span className="tabular absolute -top-2 -right-2 flex size-6 items-center justify-center rounded-full bg-glow text-[11px] font-bold text-brand ring-4 ring-[#0b2e34]">
                     {i + 1}
                   </span>
                 </span>
-                <span className="text-[17px] font-semibold text-ink">{title}</span>
-                <span className="max-w-60 text-[15px] leading-relaxed text-ink-2">{body}</span>
+                <span className="text-[17px] font-semibold text-white">{title}</span>
+                <span className="max-w-60 text-[15px] leading-relaxed text-ink-on-dark">
+                  {body}
+                </span>
               </motion.li>
             ))}
           </ol>
@@ -233,10 +238,10 @@ type ScenarioKey = keyof typeof SCENARIOS;
 
 export function Grading() {
   return (
-    <section id="grading" className="scroll-mt-24 bg-canvas pb-24 sm:pb-32">
+    <section id="grading" className="surface-deep scroll-mt-24 pb-24 sm:pb-32">
       <div className={CONTAINER}>
         <Reveal>
-          <div className="surface-hero relative isolate overflow-hidden rounded-4xl px-6 py-12 sm:px-12 sm:py-16">
+          <div className="surface-hero relative isolate overflow-hidden rounded-4xl px-6 py-12 ring-1 ring-white/10 sm:px-12 sm:py-16">
             <motion.span
               aria-hidden="true"
               className="pointer-events-none absolute -top-40 -left-24 -z-10 size-115 rounded-full bg-glow/20 blur-3xl"
@@ -340,14 +345,14 @@ function GradingDemo() {
               }}
               className={`relative min-h-10 cursor-pointer rounded-[10px] text-sm transition-colors duration-200 ${
                 active
-                  ? "font-semibold text-brand"
+                  ? "font-semibold text-white"
                   : "font-medium text-ink-on-dark hover:text-white"
               }`}
             >
               {active && (
                 <motion.span
                   layoutId="grading-tab"
-                  className="absolute inset-0 rounded-[10px] bg-white"
+                  className="btn-glow absolute inset-0 rounded-[10px]"
                   transition={{ type: "spring", stiffness: 480, damping: 38 }}
                 />
               )}
@@ -498,7 +503,7 @@ const FEATURES = [
 
 export function Features() {
   return (
-    <section className="border-t border-line bg-surface py-24 sm:py-32">
+    <section className="surface-deeper border-y border-white/8 py-24 sm:py-32">
       <div className={CONTAINER}>
         <SectionHeading
           eyebrow="For candidates"
@@ -510,11 +515,13 @@ export function Features() {
           {FEATURES.map(({ icon: Icon, title, body }, i) => (
             <Reveal key={title} delay={(i % 3) * 0.08}>
               <SpotlightCard>
-                <span className="flex size-11 items-center justify-center rounded-xl bg-accent-subtle text-accent transition-transform duration-300 ease-out-soft group-hover:scale-110 group-hover:-rotate-6">
+                <span className="flex size-11 items-center justify-center rounded-xl bg-glow/15 text-[#9ff0e6] ring-1 ring-glow/25 transition-transform duration-300 ease-out-soft group-hover:scale-110 group-hover:-rotate-6">
                   <Icon aria-hidden="true" className="size-5" />
                 </span>
-                <span className="mt-5 block text-[17px] font-semibold text-ink">{title}</span>
-                <span className="mt-1.5 block text-[15px] leading-relaxed text-ink-2">{body}</span>
+                <span className="mt-5 block text-[17px] font-semibold text-white">{title}</span>
+                <span className="mt-1.5 block text-[15px] leading-relaxed text-ink-on-dark">
+                  {body}
+                </span>
               </SpotlightCard>
             </Reveal>
           ))}
@@ -528,7 +535,7 @@ export function Features() {
 function SpotlightCard({ children }: { children: ReactNode }) {
   const x = useMotionValue(-400);
   const y = useMotionValue(-400);
-  const glow = useMotionTemplate`radial-gradient(320px circle at ${x}px ${y}px, rgba(43,179,166,0.13), transparent 70%)`;
+  const glow = useMotionTemplate`radial-gradient(320px circle at ${x}px ${y}px, rgba(43,179,166,0.2), transparent 70%)`;
   return (
     <div
       onPointerMove={(e) => {
@@ -536,7 +543,7 @@ function SpotlightCard({ children }: { children: ReactNode }) {
         x.set(e.clientX - r.left);
         y.set(e.clientY - r.top);
       }}
-      className="group relative h-full overflow-hidden rounded-card border border-line bg-surface p-6 shadow-card transition-[transform,box-shadow,border-color] duration-300 ease-out-soft hover:-translate-y-1 hover:border-accent-mid hover:shadow-[0_24px_48px_-24px_rgba(15,61,68,0.35)]"
+      className="group relative h-full overflow-hidden rounded-card border border-white/10 bg-white/4 p-6 backdrop-blur-sm transition-[transform,box-shadow,border-color,background] duration-300 ease-out-soft hover:-translate-y-1 hover:border-glow/40 hover:bg-white/6 hover:shadow-[0_24px_48px_-24px_rgba(0,0,0,0.6)]"
     >
       <motion.div
         aria-hidden="true"
@@ -551,14 +558,14 @@ function SpotlightCard({ children }: { children: ReactNode }) {
 // --- Recruiters ------------------------------------------------------------
 
 const QUEUE = [
-  { session: "7F3A", topic: "Kubernetes", concept: 31, model: 79 },
+  { session: "7F3A", topic: "Kubernetes", concept: 29, model: 81 },
   { session: "C210", topic: "PostgreSQL", concept: 38, model: 86 },
-  { session: "9B4E", topic: "System design", concept: 72, model: 24 },
+  { session: "9B4E", topic: "System design", concept: 74, model: 31 },
 ];
 
 export function Recruiters() {
   return (
-    <section id="recruiters" className="scroll-mt-24 border-t border-line bg-canvas py-24 sm:py-32">
+    <section id="recruiters" className="surface-deep scroll-mt-24 py-24 sm:py-32">
       <div className={`${CONTAINER} grid items-center gap-14 lg:grid-cols-2`}>
         <div className="flex flex-col gap-8">
           <SectionHeading
@@ -582,9 +589,9 @@ export function Recruiters() {
               <StaggerItem
                 as="li"
                 key={text}
-                className="flex items-center gap-3 text-[15px] text-ink-2"
+                className="flex items-center gap-3 text-[15px] text-ink-on-dark"
               >
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent-subtle text-accent">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-glow/15 text-[#9ff0e6]">
                   <Icon aria-hidden="true" className="size-4" />
                 </span>
                 {text}
@@ -592,11 +599,11 @@ export function Recruiters() {
             ))}
           </Stagger>
           <Reveal>
-            <p className="text-sm text-ink-3">
+            <p className="text-sm text-ink-on-dark">
               Recruiter accounts are set up by your administrator.{" "}
               <Link
                 href={loginHref()}
-                className="font-semibold text-accent underline-offset-4 hover:text-brand hover:underline"
+                className="font-semibold text-[#9ff0e6] underline-offset-4 hover:text-white hover:underline"
               >
                 Sign in
               </Link>
@@ -607,36 +614,36 @@ export function Recruiters() {
         <Reveal delay={0.1}>
           <div
             aria-hidden="true"
-            className="rounded-card border border-line bg-surface p-5 shadow-[0_32px_64px_-32px_rgba(15,61,68,0.35)] sm:p-6"
+            className="rounded-card border border-white/10 bg-white/4 p-5 shadow-[0_32px_64px_-32px_rgba(0,0,0,0.7)] backdrop-blur-sm sm:p-6"
           >
-            <div className="flex items-center justify-between border-b border-line-soft pb-4">
-              <span className="text-[15px] font-semibold text-ink">Review queue</span>
-              <span className="rounded-full bg-warn-subtle px-2.5 py-1 text-xs font-semibold text-warn">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <span className="text-[15px] font-semibold text-white">Review queue</span>
+              <span className="rounded-full px-2.5 py-1 text-xs font-semibold bg-[#9a4416]/30 text-[#ffc4a6] ring-1 ring-[#ffb08a]/25">
                 3 waiting
               </span>
             </div>
             <Stagger className="mt-4 flex flex-col gap-2.5">
               {QUEUE.map((row) => (
                 <StaggerItem key={row.session}>
-                  <div className="group flex items-center gap-4 rounded-row border border-line-soft bg-subtle px-4 py-3.5 transition-[transform,border-color,background] duration-250 ease-out-soft hover:translate-x-1 hover:border-accent-mid hover:bg-accent-soft">
+                  <div className="group flex items-center gap-4 rounded-row border border-white/8 bg-white/3 px-4 py-3.5 transition-[transform,border-color,background] duration-250 ease-out-soft hover:translate-x-1 hover:border-glow/40 hover:bg-white/7">
                     <div className="flex min-w-0 flex-1 flex-col gap-1">
-                      <span className="text-sm font-semibold text-ink">
+                      <span className="text-sm font-semibold text-white">
                         Session {row.session} · {row.topic}
                       </span>
-                      <span className="tabular text-[13px] text-ink-3">
+                      <span className="tabular text-[13px] text-ink-on-dark">
                         Concepts {row.concept} · Model {row.model}
                       </span>
                     </div>
-                    <span className="tabular rounded-full bg-warn-subtle px-2.5 py-1 text-xs font-semibold text-warn">
+                    <span className="tabular rounded-full px-2.5 py-1 text-xs font-semibold bg-[#9a4416]/30 text-[#ffc4a6] ring-1 ring-[#ffb08a]/25">
                       Δ {Math.abs(row.concept - row.model)}
                     </span>
-                    <ArrowRight className="size-4 text-accent transition-transform duration-250 group-hover:translate-x-0.5" />
+                    <ArrowRight className="size-4 text-[#9ff0e6] transition-transform duration-250 group-hover:translate-x-0.5" />
                   </div>
                 </StaggerItem>
               ))}
             </Stagger>
-            <div className="mt-4 flex items-center gap-2 rounded-row bg-accent-soft px-4 py-3 text-[13px] text-ink-2">
-              <ShieldCheck className="size-4 shrink-0 text-accent" />
+            <div className="mt-4 flex items-center gap-2 rounded-row bg-glow/10 px-4 py-3 text-[13px] text-ink-on-dark ring-1 ring-glow/20">
+              <ShieldCheck className="size-4 shrink-0 text-[#9ff0e6]" />
               Overriding a score never erases what the graders said.
             </div>
           </div>
@@ -650,10 +657,10 @@ export function Recruiters() {
 
 export function FinalCta({ user, onStart }: { user: User | null; onStart: () => void }) {
   return (
-    <section className="bg-canvas pb-24 sm:pb-32">
+    <section className="surface-deep pb-24 sm:pb-32">
       <div className={CONTAINER}>
         <Reveal>
-          <div className="surface-hero relative isolate overflow-hidden rounded-4xl px-6 py-16 text-center sm:px-12 sm:py-20">
+          <div className="surface-hero relative isolate overflow-hidden rounded-4xl px-6 py-16 ring-1 ring-white/10 text-center sm:px-12 sm:py-20">
             <motion.span
               aria-hidden="true"
               className="pointer-events-none absolute -right-24 -bottom-48 -z-10 size-120 rounded-full bg-glow/25 blur-3xl"
@@ -673,7 +680,7 @@ export function FinalCta({ user, onStart }: { user: User | null; onStart: () => 
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.98 }}
                 transition={{ type: "spring", stiffness: 400, damping: 22 }}
-                className="inline-flex min-h-13 cursor-pointer items-center gap-2 rounded-full bg-white px-7 text-[15px] font-semibold text-brand shadow-[0_16px_40px_-16px_rgba(0,0,0,0.6)] transition-colors duration-200 hover:bg-accent-soft"
+                className="inline-flex min-h-13 cursor-pointer items-center gap-2 btn-glow rounded-full px-7 text-[15px] font-semibold transition-[background,box-shadow] duration-200"
               >
                 <Upload aria-hidden="true" className="size-4.5" />
                 Upload your resume
