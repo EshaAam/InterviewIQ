@@ -70,6 +70,9 @@ class Settings(BaseSettings):
     GEMINI_FALLBACK_MODELS: str = ""
     # How long an overloaded model is tried last rather than first.
     GEMINI_OVERLOAD_COOLDOWN_SECONDS: float = 60.0
+    # Longest a single Gemini request may take before it counts as a transient
+    # failure (and is retried). The SDK's default is to wait forever.
+    GEMINI_TIMEOUT_SECONDS: float = 60.0
 
     # --- Embeddings (RAG Phase 1) ---
     # Separate from LLM_PROVIDER: the knowledge base is embedded once and every

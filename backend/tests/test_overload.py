@@ -274,3 +274,31 @@ async def test_questions_record_the_model_that_wrote_them(db_session):
     stored = await db_session.get(InterviewSession, session.id)
     assert stored.state.value == "READY"
     assert stored.model_name == "backup-a"
+
+
+# --- request timeout ---------------------------------------------------------
+# google-genai waits forever by default. On the single-process Render worker one
+# stalled call froze every grading job behind it, so the wait is bounded.
+
+
+async def test_a_stalled_call_becomes_a_retryable_error():
+    import httpx
+
+    provider = GeminiProvider(keys=["k"], model="primary", timeout=60.0)
+    provider._client = lambda key: object()
+
+    def stalls(client):
+        raise httpx.ReadTimeout("no response")
+
+    with pytest.raises(LLMTransientError, match="did not answer within 60s"):
+        await provider._execute(stalls)
+
+
+def test_every_client_is_built_with_the_timeout(monkeypatch):
+    provider = GeminiProvider(keys=["k"], model="primary", timeout=45.0)
+    built: list[dict] = []
+    monkeypatch.setattr(provider._genai, "Client", lambda **kwargs: built.append(kwargs))
+
+    provider._client("k")
+
+    assert built[0]["http_options"].timeout == 45_000  # the SDK takes milliseconds

@@ -112,6 +112,7 @@ class GeminiProvider:
         embed_model: str = "gemini-embedding-001",
         cooldown: float = 60.0,
         overload_cooldown: float = 60.0,
+        timeout: float | None = 60.0,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         if not keys:
@@ -130,14 +131,25 @@ class GeminiProvider:
         self._clock = clock
         self._overload_cooldown = overload_cooldown
         self._overloaded_until: dict[str, float] = {}
+        # Per request, in seconds. google-genai's own default is *no* timeout,
+        # and the Render worker is a single process: one call that never
+        # returns would freeze every grading job behind it, leaving sessions
+        # in "Scoring" until something restarts the container.
+        self._timeout = timeout
 
     def _client(self, key: str):
         if key not in self._clients:
-            self._clients[key] = self._genai.Client(api_key=key)
+            from google.genai import types
+
+            http_options = (
+                types.HttpOptions(timeout=int(self._timeout * 1000)) if self._timeout else None
+            )
+            self._clients[key] = self._genai.Client(api_key=key, http_options=http_options)
         return self._clients[key]
 
     async def _execute(self, call: Callable[[object], object]):
         """Run `call(client)` against pooled keys, rotating past rate-limited ones."""
+        import httpx
         from google.genai.errors import APIError
 
         last_rate_limit: Exception | None = None
@@ -154,6 +166,12 @@ class GeminiProvider:
                     last_rate_limit = exc
                     continue
                 raise self._map_error(exc) from exc
+            except httpx.TimeoutException as exc:
+                # Transient: the task's retry/give-up path takes it from here,
+                # so a stalled call ends in a retry or a stated failure.
+                raise LLMTransientError(
+                    f"gemini did not answer within {self._timeout:g}s: {exc!r}"
+                ) from exc
         raise LLMRateLimited(
             f"all {len(self._pool)} gemini keys rate-limited: {last_rate_limit}"
         )
