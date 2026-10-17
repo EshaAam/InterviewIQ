@@ -82,6 +82,44 @@ export async function pollUntil<T>(
   }
 }
 
+/**
+ * Run a write that is safe to repeat, retrying it through a network drop or a
+ * 5xx until it lands or `timeoutMs` runs out. For the free host, whose API is
+ * briefly unreachable while the container restarts: a person mid-interview
+ * should see "reconnecting", not an error, and the answer should still arrive.
+ *
+ * Only for idempotent calls (an answer carries its Idempotency-Key), since a
+ * request that reached the server before the connection dropped is sent again.
+ * A 4xx is a real answer and is thrown straight away.
+ */
+export async function retryTransient<T>(
+  op: () => Promise<T>,
+  {
+    timeoutMs = 90_000,
+    onConnectionChange,
+  }: Pick<PollOptions, "timeoutMs" | "onConnectionChange"> = {},
+): Promise<T> {
+  const deadline = Date.now() + timeoutMs;
+  let delay = 2000;
+  let troubled = false;
+  for (;;) {
+    try {
+      const value = await op();
+      if (troubled) onConnectionChange?.(null);
+      return value;
+    } catch (err) {
+      if (!isRetryable(err) || Date.now() + delay > deadline) {
+        if (troubled) onConnectionChange?.(null);
+        throw err;
+      }
+      troubled = true;
+      onConnectionChange?.(err);
+      await sleep(delay);
+      delay = Math.min(delay * 1.5, 10_000);
+    }
+  }
+}
+
 /** A network failure (not an ApiError) or a 5xx might clear up; a 4xx won't. */
 function isRetryable(err: unknown): boolean {
   if (isAbort(err)) return false;

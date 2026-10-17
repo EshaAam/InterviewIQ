@@ -47,7 +47,9 @@ RUN apt-get update \
 
 WORKDIR /app
 COPY --from=deps /app/.venv /app/.venv
-COPY --from=deps /opt/models /opt/models
+# Owned by the app user: fastembed writes small cache files beside the model
+# when it loads it, and logs "Permission denied" on every load otherwise.
+COPY --from=deps --chown=app:app /opt/models /opt/models
 COPY app ./app
 COPY migrations ./migrations
 COPY alembic.ini ./
@@ -57,7 +59,13 @@ USER app
 ENV UPLOAD_DIR=/data/uploads \
     EMBEDDING_CACHE_DIR=/opt/models \
     REDIS_URL=redis://127.0.0.1:6379/0 \
-    VOICE_ENABLED=false
+    VOICE_ENABLED=false \
+    REAPER_IN_API=true \
+    MALLOC_ARENA_MAX=2
+# MALLOC_ARENA_MAX: glibc gives every thread its own malloc arena and never
+# hands them back. Each grading job runs the embedding model on a fresh helper
+# thread, so the worker grew by ~190 MB on its first job and the container
+# passed 512 MB (measured: peak 559 MB → 394 MB with this set).
 
 # Render sets PORT (10000 by default); the start script honours it.
 EXPOSE 10000

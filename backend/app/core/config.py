@@ -213,6 +213,17 @@ class Settings(BaseSettings):
     # The reaper re-dispatches sessions stuck longer than these.
     REAPER_CREATED_AFTER_MINUTES: int = 10
     REAPER_EVALUATING_AFTER_MINUTES: int = 30
+    # Who triggers the reaper. Normally the `beat` service (docker-compose). The
+    # single-container Render image runs no beat: an embedded one (`worker -B`)
+    # is a forked copy of the whole worker, whose private share grows as the
+    # copy diverges — memory a 512 MB instance can't spare. There the API
+    # enqueues the sweep itself (see app.main), one small Redis publish per
+    # interval. Only with exactly one API process.
+    REAPER_IN_API: bool = False
+    REAPER_INTERVAL_SECONDS: float = 300.0
+    # The first sweep comes sooner than the interval, so sessions stranded by
+    # whatever restarted the container are picked up promptly.
+    REAPER_FIRST_SWEEP_SECONDS: float = 60.0
 
     @model_validator(mode="after")
     def _refuse_weak_secret_outside_local(self) -> Settings:

@@ -29,7 +29,7 @@ import {
   type Session,
   type SessionState,
 } from "@/lib/api";
-import { isAbort, pollUntil, PollTimeout, WORKER_WAIT_MS } from "@/lib/poll";
+import { isAbort, pollUntil, PollTimeout, retryTransient, WORKER_WAIT_MS } from "@/lib/poll";
 import { EASE, FadeIn } from "@/components/motion";
 import { VoiceRecorder } from "@/components/voice-recorder";
 import {
@@ -114,6 +114,13 @@ export default function InterviewSessionPage({
   const [outOfQuestions, setOutOfQuestions] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The server dropped out mid-request (the free host restarting); the write
+  // is being retried rather than reported as a failure.
+  const [reconnecting, setReconnecting] = useState(false);
+  const onConnectionChange = useCallback(
+    (problem: unknown) => setReconnecting(problem !== null),
+    [],
+  );
   const [health, setHealth] = useState<WaitHealth>("ok");
   const [confirmFinish, setConfirmFinish] = useState(false);
   // Bumped by "Keep waiting" to restart a wait that gave up.
@@ -231,22 +238,23 @@ export default function InterviewSessionPage({
     if (!question || busy || answer.trim().length === 0) return;
     setBusy(true);
     setError(null);
+    const body = {
+      question_id: question.id,
+      text: answer,
+      time_taken_ms: Date.now() - startedAt.current,
+      paste_events: pasteEvents.current,
+      keystroke_count: keystrokes.current,
+    };
     try {
-      await submitAnswer(
-        sessionId,
-        {
-          question_id: question.id,
-          text: answer,
-          time_taken_ms: Date.now() - startedAt.current,
-          paste_events: pasteEvents.current,
-          keystroke_count: keystrokes.current,
-        },
-        // Derived from *what* is being answered, not *when*: a double-click, a
-        // retry after a dropped connection, and a second tab on the same
-        // question all send the same key, so the backend stores one answer.
-        `answer:${question.id}`,
+      // Retried through a dropped connection: safe, because the key is
+      // derived from *what* is being answered, not *when* — a double-click, a
+      // retry, and a second tab on the same question all send the same key,
+      // so the backend stores one answer.
+      await retryTransient(
+        () => submitAnswer(sessionId, body, `answer:${question.id}`),
+        { onConnectionChange },
       );
-      setSession(await getSession(sessionId));
+      setSession(await retryTransient(() => getSession(sessionId), { onConnectionChange }));
       await loadQuestion();
     } catch (err) {
       await recoverFrom(err, "Could not submit the answer");
@@ -260,7 +268,9 @@ export default function InterviewSessionPage({
     setError(null);
     setConfirmFinish(false);
     try {
-      setSession(await finishSession(sessionId));
+      // A finish that did land before the connection dropped comes back as a
+      // 409 on the retry, which recoverFrom turns into a re-read of the session.
+      setSession(await retryTransient(() => finishSession(sessionId), { onConnectionChange }));
     } catch (err) {
       await recoverFrom(err, "Could not finish");
     } finally {
@@ -488,6 +498,12 @@ export default function InterviewSessionPage({
         </div>
 
         {error && <ErrorBanner message={error} />}
+        {reconnecting && (
+          <Notice tone="info" role="status" title="Reconnecting to the server">
+            The server is restarting. Your answer is safe and will be sent as soon as it
+            is back — usually within a minute. Keep this page open.
+          </Notice>
+        )}
 
         <AnimatePresence mode="wait" initial={false}>
           {question && (
@@ -578,7 +594,7 @@ export default function InterviewSessionPage({
                       loading={busy}
                       disabled={answer.trim().length === 0}
                     >
-                      {busy ? "Submitting…" : "Submit answer"}
+                      {reconnecting ? "Reconnecting…" : busy ? "Submitting…" : "Submit answer"}
                     </Button>
                   </div>
                 </div>
@@ -609,7 +625,7 @@ export default function InterviewSessionPage({
                   </span>
                 </div>
                 <Button size="lg" onClick={finish} loading={busy}>
-                  {busy ? "Finishing…" : "Finish interview"}
+                  {reconnecting ? "Reconnecting…" : busy ? "Finishing…" : "Finish interview"}
                 </Button>
               </Card>
             </motion.div>

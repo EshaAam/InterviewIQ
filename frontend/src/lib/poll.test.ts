@@ -6,7 +6,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "./api";
-import { isAbort, pollUntil, PollTimeout } from "./poll";
+import { isAbort, pollUntil, PollTimeout, retryTransient } from "./poll";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -83,5 +83,48 @@ describe("pollUntil", () => {
     await vi.advanceTimersByTimeAsync(500);
     controller.abort();
     await assertion;
+  });
+});
+
+describe("retryTransient", () => {
+  it("sends once when the server answers", async () => {
+    const op = vi.fn().mockResolvedValue("saved");
+    await expect(retryTransient(op)).resolves.toBe("saved");
+    expect(op).toHaveBeenCalledTimes(1);
+  });
+
+  it("rides out a restart — network errors and 5xx — and reports it", async () => {
+    const op = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockRejectedValueOnce(new ApiError("Bad gateway", 502))
+      .mockResolvedValueOnce("saved");
+    const seen: unknown[] = [];
+    const result = retryTransient(op, { onConnectionChange: (p) => seen.push(p) });
+    await vi.advanceTimersByTimeAsync(10_000);
+    await expect(result).resolves.toBe("saved");
+    expect(op).toHaveBeenCalledTimes(3);
+    // Shown while it was down, cleared once the answer landed.
+    expect(seen.at(0)).toBeInstanceOf(TypeError);
+    expect(seen.at(-1)).toBeNull();
+  });
+
+  it("throws a 4xx at once — the server answered, and said no", async () => {
+    const op = vi.fn().mockRejectedValue(new ApiError("Session is EXPIRED", 409));
+    await expect(retryTransient(op)).rejects.toMatchObject({ status: 409 });
+    expect(op).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives up with the last error once the time runs out", async () => {
+    const op = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+    const seen: unknown[] = [];
+    const result = retryTransient(op, {
+      timeoutMs: 20_000,
+      onConnectionChange: (p) => seen.push(p),
+    });
+    const assertion = expect(result).rejects.toBeInstanceOf(TypeError);
+    await vi.advanceTimersByTimeAsync(30_000);
+    await assertion;
+    expect(seen.at(-1)).toBeNull(); // the "reconnecting" line doesn't linger
   });
 });

@@ -56,10 +56,11 @@ def runtime_problems() -> list[str]:
                     f"{embedder.name} emits {len(vector)}-dimension vectors but the "
                     f"knowledge base column is {KB_EMBEDDING_DIM}-wide"
                 )
-        finally:
-            # The worker forks after this. Each child should build its own model
-            # rather than inherit an onnxruntime session across a fork.
-            get_embedder.cache_clear()
+        # The loaded model is kept. With the solo pool (the Render container)
+        # this process *is* the worker, and clearing it here made the first job
+        # load a second copy while the first one's memory was never handed
+        # back — enough, on a 512 MB instance, to get the container OOM-killed
+        # mid-grading. Forked pool children drop it in `worker_process_init`.
 
     return problems
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 
 from celery import Celery
-from celery.signals import worker_init
+from celery.signals import worker_init, worker_process_init
 
 from app.core.config import settings
 
@@ -29,7 +29,8 @@ celery_app.conf.update(
     result_expires=3600,
     worker_prefetch_multiplier=1,
     # Run by the `beat` service (docker-compose.yml). Only one beat process
-    # may run, or every sweep is dispatched twice.
+    # may run, or every sweep is dispatched twice. The single-container Render
+    # image runs no beat; its API enqueues the sweep instead (REAPER_IN_API).
     beat_schedule={
         "reap-stale-sessions": {
             "task": "pipeline.reap_stale_sessions",
@@ -55,3 +56,17 @@ def _refuse_to_start_broken(**_: object) -> None:
             logger.critical("worker preflight failed: %s", problem)
         logger.critical(remedy())
         raise SystemExit(1)
+
+
+@worker_process_init.connect
+def _own_model_per_child(**_: object) -> None:
+    """A forked pool child builds its own embedding model on first use.
+
+    An onnxruntime session should not be shared across a fork, so the copy the
+    parent loaded for the preflight check is dropped here. This signal only
+    fires in forked children: under the solo pool (the single-container Render
+    deploy) the preflight's model is the one the jobs use, loaded exactly once.
+    """
+    from app.embedders import get_embedder
+
+    get_embedder.cache_clear()

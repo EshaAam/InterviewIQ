@@ -18,10 +18,11 @@ until redis-cli -h 127.0.0.1 ping >/dev/null 2>&1; do sleep 0.2; done
 alembic upgrade head
 
 # Solo pool: one process instead of a parent plus children, each of which
-# would load its own copy of the embedding model. -B embeds the 5-minute
-# reaper; this container is the only one, so there is exactly one beat.
-celery -A app.workers.celery_app worker -B --pool=solo --loglevel=info \
-  --schedule /tmp/celerybeat-schedule &
+# would load its own copy of the embedding model. No -B: embedded beat is a
+# forked copy of this whole process, a second Python heap the 512 MB instance
+# can't spare. The API enqueues the 5-minute reaper instead (REAPER_IN_API,
+# set in Dockerfile.render).
+celery -A app.workers.celery_app worker --pool=solo --loglevel=info &
 
 uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-10000}" --workers 1 \
   --proxy-headers --forwarded-allow-ips '*' &
