@@ -50,6 +50,14 @@ services:
 
       - key: EMBEDDING_PROVIDER
         value: local
+      - key: EMBEDDING_MODEL
+        value: BAAI/bge-small-en-v1.5
+      - key: EMBEDDING_DIM
+        value: "384"
+      # Seed Neon and run `python -m app.cli check-rag` before deploying.
+      # Ingestion runs separately, so every cold start avoids re-embedding.
+      - key: RAG_ENABLED
+        value: "true"
       # Calibrated for the local embedder; see .env.example.
       - key: EVAL_COVERAGE_THRESHOLD
         value: "0.65"

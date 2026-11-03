@@ -108,3 +108,23 @@ def test_a_healthy_worker_starts(monkeypatch):
 
     monkeypatch.setattr(preflight, "runtime_problems", lambda: [])
     celery_app._refuse_to_start_broken()  # does not raise
+
+
+def test_solo_pool_reuses_the_preflight_embedder():
+    """Solo sends worker_process_init too; clearing here duplicated ONNX memory."""
+    from celery.concurrency.solo import TaskPool
+
+    from app.workers import celery_app  # noqa: F401 - connect the worker signals
+
+    warmed = get_embedder()
+    TaskPool()
+    assert get_embedder() is warmed
+
+
+def test_forked_child_discards_the_parent_embedder(monkeypatch):
+    from app.workers import celery_app
+
+    warmed = get_embedder()
+    monkeypatch.setattr(celery_app.os, "getpid", lambda: celery_app._APP_PROCESS_PID + 1)
+    celery_app._own_model_per_child()
+    assert get_embedder() is not warmed

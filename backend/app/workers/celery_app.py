@@ -1,12 +1,13 @@
 """Celery application.
 
-Redis is the broker and result backend (design doc §8 — a second broker we
+Redis is the broker and result backend (design doc Â§8 â€” a second broker we
 can't justify is worse than none). Tasks live in `app.workers.tasks`.
 """
 
 from __future__ import annotations
 
 import logging
+import os
 
 from celery import Celery
 from celery.signals import worker_init, worker_process_init
@@ -14,6 +15,7 @@ from celery.signals import worker_init, worker_process_init
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+_APP_PROCESS_PID = os.getpid()
 
 celery_app = Celery(
     "interviewiq",
@@ -63,10 +65,11 @@ def _own_model_per_child(**_: object) -> None:
     """A forked pool child builds its own embedding model on first use.
 
     An onnxruntime session should not be shared across a fork, so the copy the
-    parent loaded for the preflight check is dropped here. This signal only
-    fires in forked children: under the solo pool (the single-container Render
-    deploy) the preflight's model is the one the jobs use, loaded exactly once.
+    parent loaded for the preflight check is dropped in a forked child. Celery
+    also sends this signal for its solo pool, in the original process: retain
+    that model so the first RAG job does not load a second ONNX session.
     """
     from app.embedders import get_embedder
 
-    get_embedder.cache_clear()
+    if os.getpid() != _APP_PROCESS_PID:
+        get_embedder.cache_clear()

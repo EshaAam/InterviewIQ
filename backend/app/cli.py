@@ -10,7 +10,7 @@
 In Docker: `docker compose exec api python -m app.cli create-recruiter ...`.
 
 Recruiters can read every candidate's answers, so the role is granted by
-someone with shell access to the server — never chosen on a sign-up form.
+someone with shell access to the server â€” never chosen on a sign-up form.
 The password is prompted for (not passed as an argument, which would land in
 shell history); set INTERVIEWIQ_PASSWORD to script it.
 
@@ -40,7 +40,7 @@ async def create_recruiter(db: AsyncSession, email: str, password: str) -> str:
     try:
         user = await UserService(db).register(email, password, role=UserRole.recruiter)
     except EmailAlreadyRegistered:
-        return f"{email} already has an account — use `promote` instead."
+        return f"{email} already has an account â€” use `promote` instead."
     return f"Created recruiter {user.email}."
 
 
@@ -96,7 +96,7 @@ async def _eval_grading(args: argparse.Namespace) -> None:
         print(f"Grounded: retrieved passages for {covered}/{len(items)} items")
 
     print(
-        f"Grading {len(items)} golden items — llm={provider.name}, "
+        f"Grading {len(items)} golden items â€” llm={provider.name}, "
         f"embedder={embedder.name} ({resolved_embedding_provider()}), runs={args.runs}\n"
     )
     report, results = await evaluate(
@@ -186,6 +186,23 @@ async def _ingest_kb(args: argparse.Namespace) -> None:
         await db.commit()
 
     print(report.table())
+
+
+async def _check_rag(args: argparse.Namespace) -> None:
+    from app.embedders import get_embedder
+    from app.services.rag_check import RAGNotReady, check_rag
+
+    embedder = get_embedder()
+    async with async_session_factory() as db:
+        try:
+            report = await check_rag(db, embedder, query=args.query)
+        except RAGNotReady as exc:
+            sys.exit(f"RAG not ready: {exc}")
+    print(f"RAG ready: {report.documents} documents, {report.chunks} embedded chunks")
+    print(f"  model: {embedder.name}, dimensions: {embedder.dim}")
+    print(f"  query: {args.query}")
+    for hit in report.hits:
+        print(f"  {hit.similarity:.3f}  {hit.heading_path}  [{hit.chunk_id}]")
 
 
 async def _eval_retrieval(args: argparse.Namespace) -> None:
@@ -284,7 +301,7 @@ async def _kb_gaps(args: argparse.Namespace) -> None:
     if not rows:
         print(f"No coverage gaps recorded in the last {args.days} days.")
         print("Either the corpus covers what was asked, or no grounded")
-        print("interviews have run — check RAG_ENABLED.")
+        print("interviews have run â€” check RAG_ENABLED.")
         return
 
     print(f"Skills the knowledge base could not answer (last {args.days} days)\n")
@@ -331,7 +348,7 @@ def _label_grading(args: argparse.Namespace) -> None:
         print(f"\n  Q: {item.question}")
         print(f"\n  Expected concepts:\n{concepts}")
         print(f"\n  Answer:\n      {item.answer}")
-        print(f"\n  current: {item.label:.2f} ({item.labeled_by}) — {item.note}")
+        print(f"\n  current: {item.label:.2f} ({item.labeled_by}) â€” {item.note}")
 
         while True:
             try:
@@ -406,6 +423,13 @@ def main() -> None:
     ingest.add_argument("--max-tokens", type=int, default=400, help="target chunk size")
     ingest.add_argument("--overlap-tokens", type=int, default=50, help="chunk overlap")
 
+    from app.services.rag_check import DEFAULT_QUERY
+
+    rag_check = commands.add_parser(
+        "check-rag", help="verify the RAG flag, KB compatibility, and live hybrid retrieval"
+    )
+    rag_check.add_argument("--query", default=DEFAULT_QUERY, help="a query covered by the KB")
+
     retrieval = commands.add_parser(
         "eval-retrieval", help="compare vector / keyword / hybrid on the golden set"
     )
@@ -439,6 +463,8 @@ def main() -> None:
             asyncio.run(_recalibrate(args))
         case "ingest-kb":
             asyncio.run(_ingest_kb(args))
+        case "check-rag":
+            asyncio.run(_check_rag(args))
         case "eval-retrieval":
             asyncio.run(_eval_retrieval(args))
         case "kb-gaps":
