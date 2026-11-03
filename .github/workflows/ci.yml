@@ -2,7 +2,7 @@
 # hide another and they run in parallel.
 #
 #   backend     lint + the full test suite (SQLite, fake provider, no network)
-#   migrations  the migration chain against real Postgres â€” what SQLite can't check
+#   migrations  the migration chain against real Postgres — what SQLite can't check
 #   retrieval   hybrid search quality against a real pgvector database, with a floor
 #   frontend    lint, type-check, unit tests (Vitest), production build
 #   e2e         a real browser through a whole interview, against the

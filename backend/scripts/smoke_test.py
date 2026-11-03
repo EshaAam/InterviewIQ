@@ -4,14 +4,14 @@
     uv run python scripts/smoke_test.py https://api.example.com \\
         --recruiter-email you@company.com --recruiter-password '...'
 
-Runs one whole interview the way the frontend does â€” sign up, upload a
-rÃ©sumÃ© file, wait for parsing, generate questions, answer every question,
-finish, wait for grading, fetch the report and its PDF â€” and, given recruiter
+Runs one whole interview the way the frontend does — sign up, upload a
+résumé file, wait for parsing, generate questions, answer every question,
+finish, wait for grading, fetch the report and its PDF — and, given recruiter
 credentials, opens the session as a recruiter. Exits non-zero on the first
 thing that's wrong, so it can gate a deploy.
 
 Each run creates a fresh candidate (smoke-<random>@example.com). With
-LLM_PROVIDER=gemini it spends real tokens â€” run it against the fake provider
+LLM_PROVIDER=gemini it spends real tokens — run it against the fake provider
 unless you mean to.
 """
 
@@ -63,7 +63,7 @@ def run(
     def ok(response: httpx.Response, *expected: int) -> httpx.Response:
         check(
             response.status_code in (expected or (200,)),
-            f"{response.request.method} {response.request.url.path} â†’ "
+            f"{response.request.method} {response.request.url.path} → "
             f"{response.status_code}: {response.text[:300]}",
         )
         return response
@@ -122,7 +122,7 @@ def run(
             202,
         )
         answered += 1
-    check(nxt.status_code == 404, f"next question â†’ {nxt.status_code}")
+    check(nxt.status_code == 404, f"next question → {nxt.status_code}")
     ok(client.post(f"/sessions/{sid}/finish"))
     step(f"answered {answered}, finished")
 

@@ -1,12 +1,12 @@
 """Shared test fixtures.
 
-Tests run fully offline against an in-memory SQLite database â€” no Postgres,
+Tests run fully offline against an in-memory SQLite database — no Postgres,
 no Docker needed for the suite. The app's `get_db` dependency is overridden
 to hand out sessions bound to that in-memory engine, and the schema is built
 from `Base.metadata` (the same metadata Alembic migrates in production).
 
 The pipeline dispatcher is overridden with `InlineDispatcher`, so posting to an
-async endpoint runs the real pipeline synchronously against the same session â€”
+async endpoint runs the real pipeline synchronously against the same session —
 a true end-to-end flow on the fake provider, with no Celery or broker.
 """
 
@@ -114,8 +114,8 @@ async def client(
 def recruiter(client: AsyncClient, db_session: AsyncSession):
     """Factory: `headers = await recruiter("r@example.com")`.
 
-    Recruiters can't self-register, so â€” like `python -m app.cli
-    create-recruiter` â€” the account is created through the service, then
+    Recruiters can't self-register, so — like `python -m app.cli
+    create-recruiter` — the account is created through the service, then
     signed in through the real login endpoint.
     """
     from app.models.user import UserRole

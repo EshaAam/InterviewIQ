@@ -1,6 +1,6 @@
 """Celery application.
 
-Redis is the broker and result backend (design doc Â§8 â€” a second broker we
+Redis is the broker and result backend (design doc §8 — a second broker we
 can't justify is worse than none). Tasks live in `app.workers.tasks`.
 """
 

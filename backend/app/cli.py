@@ -10,7 +10,7 @@
 In Docker: `docker compose exec api python -m app.cli create-recruiter ...`.
 
 Recruiters can read every candidate's answers, so the role is granted by
-someone with shell access to the server â€” never chosen on a sign-up form.
+someone with shell access to the server — never chosen on a sign-up form.
 The password is prompted for (not passed as an argument, which would land in
 shell history); set INTERVIEWIQ_PASSWORD to script it.
 
@@ -40,7 +40,7 @@ async def create_recruiter(db: AsyncSession, email: str, password: str) -> str:
     try:
         user = await UserService(db).register(email, password, role=UserRole.recruiter)
     except EmailAlreadyRegistered:
-        return f"{email} already has an account â€” use `promote` instead."
+        return f"{email} already has an account — use `promote` instead."
     return f"Created recruiter {user.email}."
 
 
@@ -96,7 +96,7 @@ async def _eval_grading(args: argparse.Namespace) -> None:
         print(f"Grounded: retrieved passages for {covered}/{len(items)} items")
 
     print(
-        f"Grading {len(items)} golden items â€” llm={provider.name}, "
+        f"Grading {len(items)} golden items — llm={provider.name}, "
         f"embedder={embedder.name} ({resolved_embedding_provider()}), runs={args.runs}\n"
     )
     report, results = await evaluate(
@@ -301,7 +301,7 @@ async def _kb_gaps(args: argparse.Namespace) -> None:
     if not rows:
         print(f"No coverage gaps recorded in the last {args.days} days.")
         print("Either the corpus covers what was asked, or no grounded")
-        print("interviews have run â€” check RAG_ENABLED.")
+        print("interviews have run — check RAG_ENABLED.")
         return
 
     print(f"Skills the knowledge base could not answer (last {args.days} days)\n")
@@ -348,7 +348,7 @@ def _label_grading(args: argparse.Namespace) -> None:
         print(f"\n  Q: {item.question}")
         print(f"\n  Expected concepts:\n{concepts}")
         print(f"\n  Answer:\n      {item.answer}")
-        print(f"\n  current: {item.label:.2f} ({item.labeled_by}) â€” {item.note}")
+        print(f"\n  current: {item.label:.2f} ({item.labeled_by}) — {item.note}")
 
         while True:
             try:
