@@ -188,6 +188,23 @@ async def _ingest_kb(args: argparse.Namespace) -> None:
     print(report.table())
 
 
+async def _check_rag(args: argparse.Namespace) -> None:
+    from app.embedders import get_embedder
+    from app.services.rag_check import RAGNotReady, check_rag
+
+    embedder = get_embedder()
+    async with async_session_factory() as db:
+        try:
+            report = await check_rag(db, embedder, query=args.query)
+        except RAGNotReady as exc:
+            sys.exit(f"RAG not ready: {exc}")
+    print(f"RAG ready: {report.documents} documents, {report.chunks} embedded chunks")
+    print(f"  model: {embedder.name}, dimensions: {embedder.dim}")
+    print(f"  query: {args.query}")
+    for hit in report.hits:
+        print(f"  {hit.similarity:.3f}  {hit.heading_path}  [{hit.chunk_id}]")
+
+
 async def _eval_retrieval(args: argparse.Namespace) -> None:
     from app.core.config import settings
     from app.db.session import async_session_factory
@@ -406,6 +423,13 @@ def main() -> None:
     ingest.add_argument("--max-tokens", type=int, default=400, help="target chunk size")
     ingest.add_argument("--overlap-tokens", type=int, default=50, help="chunk overlap")
 
+    from app.services.rag_check import DEFAULT_QUERY
+
+    rag_check = commands.add_parser(
+        "check-rag", help="verify the RAG flag, KB compatibility, and live hybrid retrieval"
+    )
+    rag_check.add_argument("--query", default=DEFAULT_QUERY, help="a query covered by the KB")
+
     retrieval = commands.add_parser(
         "eval-retrieval", help="compare vector / keyword / hybrid on the golden set"
     )
@@ -439,6 +463,8 @@ def main() -> None:
             asyncio.run(_recalibrate(args))
         case "ingest-kb":
             asyncio.run(_ingest_kb(args))
+        case "check-rag":
+            asyncio.run(_check_rag(args))
         case "eval-retrieval":
             asyncio.run(_eval_retrieval(args))
         case "kb-gaps":

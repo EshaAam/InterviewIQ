@@ -41,6 +41,10 @@ def _test_env(monkeypatch: pytest.MonkeyPatch) -> None:
     from app.providers.factory import get_provider
 
     monkeypatch.setattr(settings, "LLM_PROVIDER", "fake")
+    # Feature tests opt in explicitly; local demo flags must not change the
+    # baseline expected by tests for the disabled paths.
+    monkeypatch.setattr(settings, "RAG_ENABLED", False)
+    monkeypatch.setattr(settings, "VOICE_ENABLED", False)
     # Pinned, not left on "auto": the suite must never reach for fastembed or
     # the network, and the hashing vectors are what the cosine assertions
     # in test_providers / test_evaluation_quality were written against.

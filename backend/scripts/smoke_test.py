@@ -54,7 +54,9 @@ def poll(fetch, done, *, what: str, timeout: float = 180.0) -> dict:
         time.sleep(1.0)
 
 
-def run(base: str, recruiter: tuple[str, str] | None) -> None:
+def run(
+    base: str, recruiter: tuple[str, str] | None, *, require_grounded: bool = False
+) -> None:
     api = f"{base.rstrip('/')}/api/v1"
     client = httpx.Client(base_url=api, timeout=30.0)
 
@@ -146,6 +148,14 @@ def run(base: str, recruiter: tuple[str, str] | None) -> None:
         rec.headers["Authorization"] = f"Bearer {tokens['access_token']}"
         detail = ok(rec.get(f"/recruiter/sessions/{sid}")).json()
         check(detail["candidate_email"] == email, "recruiter detail shows another candidate")
+        if require_grounded:
+            grounded = [q for q in detail["questions"] if q["grounded"]]
+            check(bool(grounded), "RAG check failed: no generated question is grounded")
+            check(
+                all(q["sources"] for q in grounded),
+                "RAG check failed: a grounded question has no resolved source passages",
+            )
+            step(f"RAG: {len(grounded)}/{len(detail['questions'])} questions have cited sources")
         ok(rec.get("/recruiter/evaluations"))
         ok(rec.get("/recruiter/costs"))
         step("recruiter: session detail, review queue and costs all load")
@@ -156,16 +166,23 @@ def main() -> None:
     parser.add_argument("base_url", help="e.g. http://localhost:8000")
     parser.add_argument("--recruiter-email")
     parser.add_argument("--recruiter-password")
+    parser.add_argument(
+        "--require-grounded",
+        action="store_true",
+        help="fail unless the interview has grounded questions with resolved source passages",
+    )
     args = parser.parse_args()
     recruiter = (
         (args.recruiter_email, args.recruiter_password)
         if args.recruiter_email and args.recruiter_password
         else None
     )
+    if args.require_grounded and not recruiter:
+        parser.error("--require-grounded needs recruiter credentials to inspect saved citations")
     print(f"Smoke test against {args.base_url}")
     started = time.monotonic()
     try:
-        run(args.base_url, recruiter)
+        run(args.base_url, recruiter, require_grounded=args.require_grounded)
     except (SmokeFailure, httpx.HTTPError) as exc:
         print(f"FAILED: {exc}", file=sys.stderr)
         sys.exit(1)
