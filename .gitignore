@@ -42,4 +42,5 @@ uploads/
 loadtest/results/
 
 # Local design/planning docs (kept out of GitHub)
-docs/
+docs/*
+!docs/deploy.md
