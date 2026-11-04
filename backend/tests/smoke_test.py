@@ -1,7 +1,7 @@
 """End-to-end smoke test against a running deployment.
 
-    uv run python scripts/smoke_test.py http://localhost:8000
-    uv run python scripts/smoke_test.py https://api.example.com \\
+    uv run python tests/smoke_test.py http://localhost:8000
+    uv run python tests/smoke_test.py https://api.example.com \\
         --recruiter-email you@company.com --recruiter-password '...'
 
 Runs one whole interview the way the frontend does — sign up, upload a

@@ -26,6 +26,7 @@ out/
 .vscode/
 .idea/
 .claude/
+.mcp.json
 AGENTS.md
 CLAUDE.md
 PROGRESS.md
