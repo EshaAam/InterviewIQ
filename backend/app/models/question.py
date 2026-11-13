@@ -43,3 +43,14 @@ class Question(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     #: non-empty, because "the KB did not cover this skill" and "RAG was off"
     #: are different facts and a report should be able to tell them apart.
     grounded: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    #: A copy of each cited passage as the model saw it: text, heading, document
+    #: attribution and hashes, in citation order.
+    #:
+    #: `source_chunk_ids` alone is not enough. Re-ingesting an edited document
+    #: deletes its chunks and mints new ids, so an id-only citation points at
+    #: nothing afterwards and a finished interview can no longer show, or be
+    #: re-graded against, the evidence its answer key was built from. The copy
+    #: makes the citation self-contained. Empty for ungrounded questions, and
+    #: for grounded ones written before this column whose chunks were already
+    #: gone when it was backfilled.
+    source_snapshots: Mapped[list[dict]] = mapped_column(JSON, default=list)

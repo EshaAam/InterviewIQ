@@ -63,6 +63,7 @@ from app.schemas.pipeline import (
     SkillExtractionResult,
 )
 from app.services import job_match, ledger
+from app.services.citations import snapshot_chunks
 from app.services.grading import grade
 from app.services.grounding import GroundedContext, build_context
 from app.services.grounding import build_prompt as build_grounded_prompt
@@ -333,6 +334,11 @@ async def generate_questions(
         # Reproducibility: the model that actually wrote these questions.
         session.model_name = used[-1] if used else provider.name
 
+        # Copied now, while the passages are exactly what the prompt contained:
+        # a later re-ingest replaces chunks, and an id alone would then cite
+        # nothing.
+        snapshots = await snapshot_chunks(db, list(context.sources.values()))
+
         # Rebuild questions so a retry doesn't collide on (session, ordinal).
         await db.execute(delete(Question).where(Question.session_id == session_id))
         for ordinal, q in enumerate(result.questions):
@@ -351,6 +357,7 @@ async def generate_questions(
                     prompt_version=PROMPT_VERSION,
                     source_chunk_ids=cited,
                     grounded=bool(cited),
+                    source_snapshots=[snapshots[c] for c in cited if c in snapshots],
                 )
             )
 
@@ -374,15 +381,25 @@ async def generate_questions(
 async def _cited_sources(db: AsyncSession, question: Question) -> list[str]:
     """The passages this question was generated from, in citation order.
 
-    Read from `question.source_chunk_ids`, never retrieved afresh. Grading that
-    retrieves would let a knowledge-base edit move the score of an interview
-    that already finished — the system would stop being able to defend a number
-    it had already given someone.
+    Read from the copy saved with the question, never retrieved afresh. Grading
+    that retrieves would let a knowledge-base edit move the score of an
+    interview that already finished, and grading that looks the ids up would
+    lose the reference entirely once a re-ingest replaced those chunks. Either
+    way the system would stop being able to defend a number it had already
+    given someone.
 
-    A chunk that has since been removed is simply skipped rather than failing
-    the grade: the citation records what the model was shown, and losing one
-    source should degrade the reference, not the candidate's result.
+    Questions from before the copy existed fall back to the live chunks. One
+    that has since been removed is skipped rather than failing the grade:
+    losing a source should degrade the reference, not the candidate's result.
     """
+    snapshots = question.source_snapshots or []
+    if snapshots:
+        return [
+            f"{snap.get('heading_path', '')}\n{snap['text']}"
+            for snap in snapshots
+            if snap.get("text")
+        ]
+
     cited = question.source_chunk_ids or []
     if not cited:
         return []
@@ -396,6 +413,7 @@ async def _cited_sources(db: AsyncSession, question: Question) -> list[str]:
     return [
         f"{by_id[c].heading_path}\n{by_id[c].text}" for c in cited if c in by_id
     ]
+
 
 async def evaluate_answer(
     db: AsyncSession,
