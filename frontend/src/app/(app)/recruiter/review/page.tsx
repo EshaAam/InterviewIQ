@@ -237,7 +237,11 @@ function ExpandedReview({
       {/* The reviewer judges against the same passages the grader was given.
           Without them this screen asks a human to second-guess a decision
           while withholding the evidence it was made from. */}
-      <CitedSources sources={item.sources} grounded={item.grounded} />
+      <CitedSources
+        sources={item.sources}
+        grounded={item.grounded}
+        status={item.grounding_status}
+      />
 
       <div className="flex flex-wrap gap-3">
         <ScoreBox

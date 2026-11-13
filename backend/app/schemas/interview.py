@@ -160,6 +160,9 @@ class EvaluationReviewRead(BaseModel):
     # Without them the screen asks a human to second-guess a decision while
     # withholding the evidence it was made from.
     grounded: bool = False
+    # Why: one of `GroundingStatus`. Tells "the corpus did not cover this"
+    # apart from "retrieval was off" and "the model cited nothing it was given".
+    grounding_status: str = "unknown"
     sources: list[CitedSourceRead] = Field(default_factory=list)
 
 
@@ -246,6 +249,9 @@ class QuestionDetail(BaseModel):
     # Shown explicitly rather than inferred from `sources` being empty, so an
     # ungrounded question is labelled instead of just looking unremarkable.
     grounded: bool = False
+    # Why: one of `GroundingStatus`. Tells "the corpus did not cover this"
+    # apart from "retrieval was off" and "the model cited nothing it was given".
+    grounding_status: str = "unknown"
     sources: list[CitedSourceRead] = Field(default_factory=list)
     # A list, not a single answer: the database allows more than one per
     # question, and a review screen should show what is stored, not hide it.

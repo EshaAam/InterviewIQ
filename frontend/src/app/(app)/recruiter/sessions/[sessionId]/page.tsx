@@ -272,7 +272,11 @@ function QuestionCard({
 
       {/* Where the answer key came from. A recruiter defending a score needs to
           be able to trace it to a source in one click. */}
-      <CitedSources sources={question.sources} grounded={question.grounded} />
+      <CitedSources
+        sources={question.sources}
+        grounded={question.grounded}
+        status={question.grounding_status}
+      />
 
       {question.answers.length === 0 && <p className="text-sm text-ink-3">Not answered.</p>}
       {question.answers.map((answer) => (

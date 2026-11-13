@@ -114,6 +114,18 @@ export type CitedSource = {
   license: string;
 };
 
+/**
+ * Why a question is or is not grounded. `unknown` is an ungrounded question
+ * generated before the reason was recorded.
+ */
+export type GroundingStatus =
+  | "grounded"
+  | "uncited"
+  | "not_covered"
+  | "no_skills"
+  | "rag_disabled"
+  | "unknown";
+
 /** A passage behind a concept the candidate missed. */
 export type StudyLink = {
   topic: string;
@@ -159,6 +171,7 @@ export type EvaluationReview = {
   run_count: number;
   /** Whether the answer key came from cited passages or from model memory. */
   grounded: boolean;
+  grounding_status: GroundingStatus;
   sources: CitedSource[];
 };
 
@@ -210,6 +223,7 @@ export type QuestionDetail = {
   text: string;
   expected_concepts: string[];
   grounded: boolean;
+  grounding_status: GroundingStatus;
   sources: CitedSource[];
   answers: AnswerDetail[];
 };

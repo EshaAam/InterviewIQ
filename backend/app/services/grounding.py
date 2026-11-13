@@ -34,7 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.embedders import Embedder
-from app.models import ExtractedSkill
+from app.models import ExtractedSkill, GroundingStatus
 from app.providers.base import LLMValidationError
 from app.schemas.pipeline import QUESTIONS_PER_INTERVIEW
 from app.services.prompt_safety import UNTRUSTED_DATA_RULE, fence
@@ -56,10 +56,26 @@ class GroundedContext:
     #: because a skill name alone rarely explains why nothing matched.
     uncovered: list[tuple[str, str]] = field(default_factory=list)
     tokens_used: int = 0
+    #: How many skills and job-description gaps retrieval was run for. Zero
+    #: means there was nothing to look up, which is a different reason for an
+    #: empty context than "looked, and the corpus had nothing".
+    queried: int = 0
 
     @property
     def is_empty(self) -> bool:
         return not self.sources
+
+    def status_for(self, cited: list[str], *, rag_enabled: bool) -> GroundingStatus:
+        """Why one question is or is not grounded, given what it cited."""
+        if cited:
+            return GroundingStatus.GROUNDED
+        if not rag_enabled:
+            return GroundingStatus.RAG_DISABLED
+        if self.queried == 0:
+            return GroundingStatus.NO_SKILLS
+        if self.is_empty:
+            return GroundingStatus.NOT_COVERED
+        return GroundingStatus.UNCITED
 
     def chunk_ids_for(self, labels: list[str]) -> list[str]:
         """Map cited labels back to chunk ids, rejecting anything invented.
@@ -111,6 +127,7 @@ async def build_context(
     ]
     if not targets:
         return context
+    context.queried = len(targets)
 
     top_k = k if k is not None else settings.RAG_TOP_K
     budget = token_budget if token_budget is not None else settings.RAG_CONTEXT_TOKEN_BUDGET

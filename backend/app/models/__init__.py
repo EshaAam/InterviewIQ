@@ -12,7 +12,7 @@ from app.models.evaluation import Evaluation
 from app.models.extracted_skill import ExtractedSkill
 from app.models.knowledge import KB_EMBEDDING_DIM, KBChunk, KBDocument
 from app.models.llm_call import LLMCall
-from app.models.question import Question
+from app.models.question import GroundingStatus, Question
 from app.models.report import Report
 from app.models.resume import ParseStatus, Resume
 from app.models.session import InterviewSession, SessionState
@@ -29,6 +29,7 @@ __all__ = [
     "InterviewSession",
     "SessionState",
     "Question",
+    "GroundingStatus",
     "Answer",
     "Evaluation",
     "Report",

@@ -154,6 +154,7 @@ async def session_detail(session_id: uuid.UUID, db: DbSession) -> RecruiterSessi
                 text=q.text,
                 expected_concepts=q.expected_concepts or [],
                 grounded=q.grounded,
+                grounding_status=q.grounding_status,
                 sources=[
                     CitedSourceRead.model_validate(c) for c in citations.get(q.id, [])
                 ],
@@ -233,6 +234,7 @@ async def review_queue(
                 needs_review=ev.needs_review,
                 run_count=ev.run_count,
                 grounded=q.grounded,
+                grounding_status=q.grounding_status,
                 sources=[
                     CitedSourceRead.model_validate(c) for c in citations.get(q.id, [])
                 ],

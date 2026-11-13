@@ -16,7 +16,7 @@ import {
   Info,
   Loader2,
 } from "lucide-react";
-import type { SessionState, CitedSource } from "@/lib/api";
+import type { SessionState, CitedSource, GroundingStatus } from "@/lib/api";
 import { toHundred } from "@/lib/format";
 import { BarFill, FadeIn, PulseDot } from "./motion";
 import { PageHero } from "./page-hero";
@@ -571,24 +571,39 @@ export function IntegrityBadge() {
  * actually deciding a score needs to read it. Showing only a heading would
  * make the citation a claim rather than something checkable.
  */
+const UNGROUNDED_REASON: Record<GroundingStatus, string> = {
+  grounded:
+    "Grounded, but the cited passages are no longer in the knowledge base and were not saved with this question.",
+  uncited:
+    "Not grounded: reference passages were offered, but this question cited none, so its answer key came from the model.",
+  not_covered:
+    "Not grounded: the knowledge base has nothing relevant enough for this candidate's skills, so the answer key came from the model.",
+  no_skills:
+    "Not grounded: no skills were extracted from the résumé to look up reference material for.",
+  rag_disabled:
+    "Not grounded: source retrieval was switched off when this interview was generated.",
+  unknown: "Not grounded — the answer key came from the model, not from a cited source.",
+};
+
 export function CitedSources({
   sources,
   grounded,
+  status,
   className = "",
 }: {
   sources: CitedSource[];
   grounded: boolean;
+  /** Why, when there is nothing to show. Optional so older payloads still render. */
+  status?: GroundingStatus;
   className?: string;
 }) {
   if (!grounded || sources.length === 0) {
     // Said out loud rather than shown as an absence. An ungrounded question is
     // a normal outcome — the knowledge base does not cover everything — but a
-    // reviewer should know the answer key came from the model, not a source.
-    return (
-      <p className={`text-xs text-ink-3 ${className}`}>
-        Not grounded — the answer key came from the model, not from a cited source.
-      </p>
-    );
+    // reviewer should know the answer key came from the model, not a source,
+    // and which of the several reasons applies.
+    const reason = grounded ? "grounded" : status && status !== "grounded" ? status : "unknown";
+    return <p className={`text-xs text-ink-3 ${className}`}>{UNGROUNDED_REASON[reason]}</p>;
   }
 
   return (

@@ -357,6 +357,9 @@ async def generate_questions(
                     prompt_version=PROMPT_VERSION,
                     source_chunk_ids=cited,
                     grounded=bool(cited),
+                    grounding_status=context.status_for(
+                        cited, rag_enabled=settings.RAG_ENABLED
+                    ),
                     source_snapshots=[snapshots[c] for c in cited if c in snapshots],
                 )
             )

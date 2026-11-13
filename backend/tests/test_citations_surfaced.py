@@ -196,4 +196,5 @@ async def test_the_review_queue_carries_the_cited_passages(client, recruiter, kb
     # Shape, not content: the fixture interview may legitimately be ungrounded.
     for item in body["items"]:
         assert "grounded" in item
+        assert "grounding_status" in item
         assert isinstance(item["sources"], list)
