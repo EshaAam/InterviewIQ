@@ -138,6 +138,20 @@ async def test_an_uncovered_query_returns_nothing_rather_than_the_least_bad(kb, 
     assert hits == []
 
 
+async def test_a_long_resume_sentence_still_gets_keyword_matches(kb, embedder):
+    """The shape production sends. Requiring every term matched nothing."""
+    hits = await search(
+        kb,
+        embedder,
+        "PostgreSQL Tuned PostgreSQL connection pools and added indexes for a slow "
+        "reporting workload at a fintech startup",
+        mode=SearchMode.KEYWORD,
+        k=5,
+        min_similarity=0.0,
+    )
+    assert hits
+
+
 # --- the golden sets -------------------------------------------------------
 
 

@@ -29,6 +29,12 @@ function of position only, so the top result of a hopeless query scores exactly
 as well as the top result of a perfect one. Deciding "the knowledge base does
 not cover this" from an RRF score is therefore meaningless; it has to come from
 a calibrated similarity.
+
+**Keyword search matches any term and ranks full matches first.** Production
+queries are a skill name plus the resume sentence it came from. Requiring every
+term (`plainto_tsquery`'s default) meant such a query matched no passage at all
+and hybrid search quietly ran on its vector half alone: on the resume-shaped
+golden queries the keyword retriever scored recall 0.000.
 """
 
 from __future__ import annotations
@@ -127,16 +133,31 @@ async def _keyword_candidates(
     """chunk_ids best-first by lexical relevance."""
     if db.bind is not None and db.bind.dialect.name == "postgresql":
         # The expression repeats the one the GIN index was built on, or the
-        # index cannot be used. `plainto_tsquery` ANDs the terms, which is the
-        # behaviour we want: a query matching every term beats a loose one.
+        # index cannot be used.
+        #
+        # `plainto_tsquery` ANDs the terms. Alone that is too strict: a
+        # fourteen-word resume sentence never matches a single passage on every
+        # term, so the keyword retriever returned nothing for exactly the
+        # queries production sends. `loose` is the same parsed query (same
+        # stemming, same stop words) with the ANDs turned into ORs, and it
+        # decides what matches. `strict` only reorders: a passage containing
+        # every term still outranks one containing some, which keeps the
+        # precision of the old behaviour for short exact-term queries.
         sql = text(
             """
+            WITH q AS (
+                SELECT plainto_tsquery('english', :q) AS strict,
+                       replace(plainto_tsquery('english', :q)::text, ' & ', ' | ')::tsquery
+                           AS loose
+            )
             SELECT id
-            FROM kb_chunks
-            WHERE to_tsvector('english', text) @@ plainto_tsquery('english', :q)
+            FROM kb_chunks, q
+            WHERE numnode(q.loose) > 0
+              AND to_tsvector('english', text) @@ q.loose
               AND (CAST(:topic AS varchar) IS NULL OR topic = :topic)
-            ORDER BY ts_rank_cd(to_tsvector('english', text),
-                                plainto_tsquery('english', :q)) DESC
+            ORDER BY (to_tsvector('english', text) @@ q.strict) DESC,
+                     ts_rank_cd(to_tsvector('english', text), q.loose) DESC,
+                     id
             LIMIT :limit
             """
         )
