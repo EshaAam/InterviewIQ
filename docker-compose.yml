@@ -25,7 +25,12 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      # Host side is 16379, for the same reason as Postgres above: Windows
+      # reserves port blocks at boot and 6379 lands inside one, so publishing it
+      # fails with "access permissions" even though nothing is listening.
+      # Containers still reach Redis on redis:6379; only tools on your PC
+      # (redis-cli, RedisInsight) use 16379.
+      - "${REDIS_HOST_PORT:-16379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -63,7 +68,7 @@ services:
     build:
       context: ./backend
       target: dev
-    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=2
+    command: celery -A app.workers.celery_app worker --loglevel=info --pool=${CELERY_POOL:-prefork} --concurrency=2
     env_file: .env
     environment:
       POSTGRES_HOST: db
