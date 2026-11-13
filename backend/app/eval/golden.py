@@ -26,6 +26,10 @@ DEFAULT_RETRIEVAL_PATH = _GOLDEN_DIR / "retrieval.jsonl"
 DEFAULT_UNCOVERED_PATH = _GOLDEN_DIR / "retrieval_uncovered.jsonl"
 
 LabelSource = Literal["ai-bootstrap", "human"]
+#: `tune` is what thresholds and retrieval choices are fitted on; `test` is
+#: only ever reported. A number measured on the examples a setting was tuned
+#: against says how well it fits them, not how well it works.
+Split = Literal["tune", "test"]
 
 
 class GoldenItem(BaseModel):
@@ -96,11 +100,16 @@ class RetrievalItem(BaseModel):
     #: Which retriever this query is meant to stress. `exact-term` queries are
     #: where vector search alone is weak and keyword search carries it, and vice
     #: versa for `paraphrase` - a set made only of paraphrases would make hybrid
-    #: look pointless by construction.
-    kind: Literal["paraphrase", "exact-term", "mixed"] = "mixed"
+    #: look pointless by construction. `resume` is the shape production sends:
+    #: a skill name followed by the sentence of the resume it was found in,
+    #: long and full of words the corpus never uses.
+    kind: Literal["paraphrase", "exact-term", "mixed", "resume"] = "mixed"
+    split: Split = "tune"
 
 
-def load_retrieval_golden(path: Path | None = None) -> list[RetrievalItem]:
+def load_retrieval_golden(
+    path: Path | None = None, *, split: Split | None = None
+) -> list[RetrievalItem]:
     target = path or DEFAULT_RETRIEVAL_PATH
     if not target.exists():
         raise FileNotFoundError(f"No retrieval golden set at {target}.")
@@ -113,10 +122,14 @@ def load_retrieval_golden(path: Path | None = None) -> list[RetrievalItem]:
             items.append(RetrievalItem.model_validate_json(line))
         except Exception as exc:  # noqa: BLE001 - point at the line, then re-raise
             raise ValueError(f"{target}:{line_no} is not a valid retrieval item: {exc}") from exc
+    if split is not None:
+        items = [item for item in items if item.split == split]
     return items
 
 
-def load_uncovered_queries(path: Path | None = None) -> list[str]:
+def load_uncovered_queries(
+    path: Path | None = None, *, split: Split | None = None
+) -> list[str]:
     """Queries the knowledge base deliberately does not cover.
 
     Without negatives a relevance cut-off cannot be calibrated: every query in
@@ -130,5 +143,7 @@ def load_uncovered_queries(path: Path | None = None) -> list[str]:
     for raw in target.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
         if line and not line.startswith("//"):
-            queries.append(json.loads(line)["query"])
+            item = json.loads(line)
+            if split is None or item.get("split", "tune") == split:
+                queries.append(item["query"])
     return queries

@@ -208,6 +208,27 @@ async def test_a_long_resume_sentence_still_gets_keyword_matches(kb, embedder):
 # --- the golden sets -------------------------------------------------------
 
 
+def test_the_golden_set_is_split_into_matching_halves():
+    """Settings are fitted on `tune` and reported on `test`; the halves have to
+    be disjoint and stress the same mix of query kinds, or the held-out number
+    measures a different problem."""
+    from collections import Counter
+
+    tune = load_retrieval_golden(split="tune")
+    test = load_retrieval_golden(split="test")
+    assert tune and test
+    assert not {i.id for i in tune} & {i.id for i in test}
+    assert len(tune) + len(test) == len(load_retrieval_golden())
+    assert Counter(i.kind for i in tune) == Counter(i.kind for i in test)
+    assert "resume" in {i.kind for i in test}
+
+    uncovered_tune = load_uncovered_queries(split="tune")
+    uncovered_test = load_uncovered_queries(split="test")
+    assert uncovered_tune and uncovered_test
+    assert not set(uncovered_tune) & set(uncovered_test)
+
+
+
 async def test_every_golden_heading_path_exists_in_the_corpus(kb):
     """A typo in a golden path makes that query permanently unanswerable and
     silently drags recall down, which looks like a retrieval regression."""

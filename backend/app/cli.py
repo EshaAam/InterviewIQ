@@ -214,47 +214,73 @@ async def _eval_retrieval(args: argparse.Namespace) -> None:
         compare_modes,
         comparison_table,
         false_grounding_rate,
+        passage_precision,
     )
 
-    items = load_retrieval_golden()
-    uncovered = load_uncovered_queries()
     embedder = get_embedder()
-    print(f"Retrieval over {len(items)} queries, k={args.k}, embedder={embedder.name}")
-    print()
+    splits = ("tune", "test") if args.split == "both" else (args.split,)
+    held_out = None
 
     async with async_session_factory() as db:
-        reports = await compare_modes(db, embedder, items, k=args.k)
-        wrongly_grounded, total_uncovered = await false_grounding_rate(
-            db, embedder, uncovered, k=args.k
-        )
+        for split in splits:
+            items = load_retrieval_golden(split=None if split == "all" else split)
+            uncovered = load_uncovered_queries(split=None if split == "all" else split)
+            role = {
+                "tune": "settings are fitted on these",
+                "test": "held out, reported only",
+                "all": "tune and test together",
+            }[split]
+            print(
+                f"[{split}] {len(items)} queries ({role}), k={args.k}, "
+                f"embedder={embedder.name}"
+            )
+            print()
 
-    print(comparison_table(reports))
-    print()
-    print(
-        f"  false grounding   {wrongly_grounded}/{total_uncovered} uncovered queries "
-        f"returned passages at RAG_MIN_SIMILARITY={settings.RAG_MIN_SIMILARITY}"
-    )
+            reports = await compare_modes(db, embedder, items, k=args.k)
+            wrongly_grounded, total_uncovered = await false_grounding_rate(
+                db, embedder, uncovered, k=args.k
+            )
+            unfiltered = await passage_precision(db, embedder, items, passage_min_similarity=0.0)
+            filtered = await passage_precision(db, embedder, items)
 
-    by_mode = {r.mode: r for r in reports}
-    hybrid, vector, keyword = by_mode["hybrid"], by_mode["vector"], by_mode["keyword"]
-    best_single = max(vector.recall_at_k, keyword.recall_at_k)
-    print()
-    print(
-        f"  hybrid recall@{args.k} {hybrid.recall_at_k:.3f} vs best single "
-        f"{best_single:.3f} ({hybrid.recall_at_k - best_single:+.3f})"
-    )
-    if hybrid.misses:
-        print()
-        print(f"  hybrid found nothing relevant for {len(hybrid.misses)}:")
-        for miss in hybrid.misses:
-            print(f"    {miss}")
+            print(comparison_table(reports))
+            print()
+            print(
+                f"  false grounding   {wrongly_grounded}/{total_uncovered} uncovered queries "
+                f"returned passages at RAG_MIN_SIMILARITY={settings.RAG_MIN_SIMILARITY}"
+            )
+            print(
+                f"  passage floor     at RAG_PASSAGE_MIN_SIMILARITY="
+                f"{settings.RAG_PASSAGE_MIN_SIMILARITY} (k={settings.RAG_TOP_K}): "
+                f"{filtered.relevant_kept}/{unfiltered.relevant_kept} relevant passages kept, "
+                f"unlisted passages {unfiltered.other_kept} -> {filtered.other_kept}, "
+                f"precision {unfiltered.precision:.3f} -> {filtered.precision:.3f}"
+            )
+
+            by_mode = {r.mode: r for r in reports}
+            hybrid, vector, keyword = by_mode["hybrid"], by_mode["vector"], by_mode["keyword"]
+            best_single = max(vector.recall_at_k, keyword.recall_at_k)
+            print(
+                f"  hybrid recall@{args.k} {hybrid.recall_at_k:.3f} vs best single "
+                f"{best_single:.3f} ({hybrid.recall_at_k - best_single:+.3f})"
+            )
+            if hybrid.misses:
+                print()
+                print(f"  hybrid found nothing relevant for {len(hybrid.misses)}:")
+                for miss in hybrid.misses:
+                    print(f"    {miss}")
+            print()
+            if split in ("test", "all"):
+                held_out = hybrid
 
     # A floor turns this from a report into a guard: CI fails rather than
-    # letting a prompt or chunking change quietly degrade retrieval.
-    if args.floor and hybrid.recall_at_k < args.floor:
+    # letting a prompt or chunking change quietly degrade retrieval. It reads
+    # the held-out half, because a number from the half the settings were
+    # fitted on would pass a change that had merely overfitted it.
+    if args.floor and held_out is not None and held_out.recall_at_k < args.floor:
         sys.exit(
-            f"\nFAIL: hybrid recall@{args.k} {hybrid.recall_at_k:.3f} is below "
-            f"the floor of {args.floor:.3f}."
+            f"FAIL: hybrid recall@{args.k} {held_out.recall_at_k:.3f} on the "
+            f"held-out queries is below the floor of {args.floor:.3f}."
         )
 
 
@@ -438,7 +464,13 @@ def main() -> None:
         "--floor",
         type=float,
         default=0.0,
-        help="exit non-zero if hybrid recall@k falls below this (for CI)",
+        help="exit non-zero if hybrid recall@k on the held-out split falls below this (for CI)",
+    )
+    retrieval.add_argument(
+        "--split",
+        choices=("both", "tune", "test", "all"),
+        default="both",
+        help="which half of the golden set to score; `both` reports tune and test separately",
     )
 
     gaps = commands.add_parser(
