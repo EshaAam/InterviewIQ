@@ -105,12 +105,22 @@ async def test_keyword_mode_sets_no_vector_rank(kb, embedder):
     assert all(h.vector_rank is None and h.keyword_rank is not None for h in hits)
 
 
-async def test_keyword_only_hits_carry_no_similarity(kb, embedder):
-    """Similarity is the cut-off's only input, so a lexical hit with no semantic
-    support must not be able to clear the floor on its own."""
+async def test_keyword_hits_carry_no_similarity_when_nothing_reads_it(kb, embedder):
+    """With the cut-off disabled in keyword mode the query is never embedded,
+    so there is no cosine to report and none is invented."""
     hits = await search(kb, embedder, "deadlock", mode=SearchMode.KEYWORD, k=5,
                         min_similarity=0.0)
     assert all(h.similarity == 0.0 for h in hits)
+
+
+async def test_keyword_hits_are_measured_when_the_cut_off_is_on(kb, embedder):
+    """Similarity is the cut-off's only input. A lexical hit used to carry 0.0
+    and so could never be kept on its own merits; now it gets the same cosine a
+    vector hit would, and is judged by it."""
+    hits = await search(kb, embedder, "deadlock", mode=SearchMode.KEYWORD, k=5,
+                        min_similarity=0.01)
+    assert hits
+    assert all(h.vector_rank is None and h.similarity >= 0.01 for h in hits)
 
 
 # --- the relevance cut-off -------------------------------------------------
@@ -136,6 +146,49 @@ async def test_an_uncovered_query_returns_nothing_rather_than_the_least_bad(kb, 
     # floor rejects a query the corpus has nothing for.
     hits = await search(kb, embedder, "Kubernetes ingress TLS termination", min_similarity=0.35)
     assert hits == []
+
+
+async def test_each_passage_must_clear_the_floor_on_its_own(kb, embedder):
+    """One strong match used to carry the whole top k into the prompt."""
+    query = "python generators"
+    ranked = await search(kb, embedder, query, k=5, min_similarity=0.0)
+    similarities = sorted((h.similarity for h in ranked), reverse=True)
+    assert similarities[0] > similarities[-1], "the fixture needs a spread to cut"
+    # A floor only the best passage reaches: the query is covered, so the old
+    # set-level check let all five through.
+    floor = similarities[0]
+
+    hits = await search(
+        kb, embedder, query, k=5, min_similarity=floor, passage_min_similarity=floor
+    )
+    assert hits
+    assert all(h.similarity >= floor for h in hits)
+    assert len(hits) < len(ranked)
+
+
+async def test_the_passage_floor_is_never_stricter_than_the_coverage_floor(kb, embedder):
+    """A passage good enough to prove the query is covered is good enough to
+    return, so an over-tight passage floor cannot empty a covered query."""
+    hits = await search(
+        kb, embedder, "python generators", k=5, min_similarity=0.05,
+        passage_min_similarity=0.999,
+    )
+    assert hits
+    assert all(h.similarity >= 0.05 for h in hits)
+
+
+async def test_a_weak_passage_gives_its_place_to_the_next_relevant_one(kb, embedder):
+    """Filtering happens before the cut to k, not after it."""
+    query = "database index performance"
+    pool = await search(kb, embedder, query, k=20, min_similarity=0.0)
+    floor = sorted((h.similarity for h in pool), reverse=True)[3]
+    eligible = [h for h in pool if h.similarity >= floor]
+
+    hits = await search(
+        kb, embedder, query, k=3, min_similarity=floor, passage_min_similarity=floor
+    )
+    if any(h.similarity >= floor for h in pool[:3]):
+        assert [h.chunk_id for h in hits] == [h.chunk_id for h in eligible[:3]]
 
 
 async def test_a_long_resume_sentence_still_gets_keyword_matches(kb, embedder):

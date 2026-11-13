@@ -129,6 +129,25 @@ class Settings(BaseSettings):
     # failure this whole effort exists to prevent. Re-run
     # `python -m app.cli eval-retrieval` after any embedder or corpus change.
     RAG_MIN_SIMILARITY: float = 0.68
+    # The floor each returned passage must clear, once the query as a whole has
+    # passed RAG_MIN_SIMILARITY. Without it one strong match carried the rest
+    # of the top k into the prompt, and most of those were not the passages the
+    # query was about. Chosen on the `tune` half of the retrieval golden set
+    # (48 queries, k=4, hybrid), as the highest floor keeping at least 95% of
+    # the labelled-relevant passages:
+    #
+    #   floor   relevant kept   other passages kept   passages per query
+    #   none        40                  92                  4.00
+    #   0.64        39                  64                  3.12
+    #   0.66        38                  42                  2.42
+    #   0.68        37                  23                  1.82
+    #
+    # "Other" is every returned passage the golden set does not list, which
+    # includes some that are merely adjacent rather than wrong, so read it as
+    # an upper bound on noise. Never applied more strictly than
+    # RAG_MIN_SIMILARITY. Re-measure with `eval-retrieval` after an embedder
+    # or corpus change; cosine ranges are model-specific.
+    RAG_PASSAGE_MIN_SIMILARITY: float = 0.66
     # Hard cap on retrieved context per generation. Grounded prompts are longer
     # and the free tier is rate-limited by tokens, so this is what stops a
     # ten-skill resume turning into one enormous request.

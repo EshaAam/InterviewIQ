@@ -141,6 +141,56 @@ async def false_grounding_rate(
     return grounded, len(queries)
 
 
+@dataclass
+class PassageReport:
+    """What the per-passage floor does to the context a query is given."""
+
+    n: int
+    #: Queries that still return at least one passage.
+    grounded: int
+    relevant_total: int
+    relevant_kept: int
+    #: Returned passages the golden set does not list as relevant. An upper
+    #: bound on noise: `relevant` is not exhaustive, so some are fine.
+    other_kept: int
+
+    @property
+    def precision(self) -> float:
+        kept = self.relevant_kept + self.other_kept
+        return self.relevant_kept / kept if kept else 0.0
+
+
+async def passage_precision(
+    db: AsyncSession,
+    embedder: Embedder,
+    items: list[RetrievalItem],
+    *,
+    k: int | None = None,
+    passage_min_similarity: float | None = None,
+) -> PassageReport:
+    """Run the production cut-off and count what reaches the prompt.
+
+    Recall@k above has the cut-off disabled and so cannot see this: whether the
+    passages that come back *with* a relevant one are themselves relevant.
+    """
+    grounded = relevant_kept = other_kept = 0
+    for item in items:
+        hits = await search(
+            db, embedder, item.query, k=k, passage_min_similarity=passage_min_similarity
+        )
+        wanted = set(item.relevant)
+        grounded += bool(hits)
+        relevant_kept += len(wanted.intersection(h.heading_path for h in hits))
+        other_kept += sum(1 for h in hits if h.heading_path not in wanted)
+    return PassageReport(
+        n=len(items),
+        grounded=grounded,
+        relevant_total=sum(len(i.relevant) for i in items),
+        relevant_kept=relevant_kept,
+        other_kept=other_kept,
+    )
+
+
 def comparison_table(reports: list[RetrievalReport]) -> str:
     kinds = sorted({kind for r in reports for kind in r.by_kind})
     header = f"  {'mode':<9} {'recall@k':>9} {'MRR':>7}  " + "  ".join(

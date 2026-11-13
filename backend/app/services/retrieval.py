@@ -30,6 +30,13 @@ as well as the top result of a perfect one. Deciding "the knowledge base does
 not cover this" from an RRF score is therefore meaningless; it has to come from
 a calibrated similarity.
 
+**The cut-off is applied twice, to two different questions.** `RAG_MIN_SIMILARITY`
+asks whether the corpus covers the query at all: if no passage reaches it, the
+answer is nothing. `RAG_PASSAGE_MIN_SIMILARITY` then asks it of each passage,
+because one strong match used to carry every other result into the prompt with
+it, and a passage that merely shared a word with the query became a source the
+model could cite.
+
 **Keyword search matches any term and ranks full matches first.** Production
 queries are a skill name plus the resume sentence it came from. Requiring every
 term (`plainto_tsquery`'s default) meant such a query matched no passage at all
@@ -77,8 +84,10 @@ class RetrievedChunk:
     #: Fused RRF score. Ranks results *within* one query; meaningless across queries.
     score: float
     #: Raw cosine against the query. Comparable across queries, so this — and
-    #: only this — is what the relevance cut-off may read. 0.0 when the chunk
-    #: was found by keyword search alone.
+    #: only this — is what the relevance cut-off may read. Computed for keyword
+    #: hits too, so a lexical match is held to the same standard as a semantic
+    #: one. 0.0 only when no query vector exists: keyword mode with the cut-off
+    #: disabled.
     similarity: float
     vector_rank: int | None = None
     keyword_rank: int | None = None
@@ -87,7 +96,9 @@ class RetrievedChunk:
 @dataclass
 class _Candidate:
     chunk: KBChunk
-    similarity: float = 0.0
+    #: None until measured; the vector retriever supplies it, keyword-only hits
+    #: have it computed from the stored embedding.
+    similarity: float | None = None
     vector_rank: int | None = None
     keyword_rank: int | None = None
 
@@ -193,6 +204,7 @@ async def search(
     candidates: int | None = None,
     mode: SearchMode = SearchMode.HYBRID,
     min_similarity: float | None = None,
+    passage_min_similarity: float | None = None,
 ) -> list[RetrievedChunk]:
     """Return the best `k` passages for `query`, or nothing if none are relevant.
 
@@ -200,6 +212,11 @@ async def search(
     not cover must produce *no* context rather than the least-bad irrelevant
     passage, or generation gets grounded in something unrelated and the citation
     actively misleads.
+
+    `min_similarity` is the coverage floor for the query as a whole and
+    `passage_min_similarity` the floor each returned passage must clear; both
+    default to the settings. `min_similarity=0` disables the cut-off entirely,
+    which is what ranking evaluation wants.
     """
     if not query.strip():
         return []
@@ -207,11 +224,25 @@ async def search(
     top_k = k if k is not None else settings.RAG_TOP_K
     pool = candidates if candidates is not None else settings.RAG_CANDIDATES
     floor = min_similarity if min_similarity is not None else settings.RAG_MIN_SIMILARITY
+    passage_floor = (
+        passage_min_similarity
+        if passage_min_similarity is not None
+        else settings.RAG_PASSAGE_MIN_SIMILARITY
+    )
+    # Never stricter than the coverage floor: a passage good enough to prove
+    # the query is covered is good enough to be returned.
+    passage_floor = min(passage_floor, floor)
 
     found: dict[uuid.UUID, _Candidate] = {}
+    query_vector: list[float] | None = None
+
+    # The cut-off needs a cosine for every candidate, so the query is embedded
+    # whenever one is in force, even in keyword mode.
+    if mode in (SearchMode.VECTOR, SearchMode.HYBRID) or floor > 0:
+        [query_vector] = await embedder.embed([query])
 
     if mode in (SearchMode.VECTOR, SearchMode.HYBRID):
-        [query_vector] = await embedder.embed([query])
+        assert query_vector is not None
         for rank, (chunk_id, similarity) in enumerate(
             await _vector_candidates(db, query_vector, topic=topic, limit=pool), start=1
         ):
@@ -242,6 +273,16 @@ async def search(
         chunk = by_id.get(chunk_id)
         if chunk is None:  # pragma: no cover - deleted between the two queries
             continue
+        similarity = candidate.similarity
+        if similarity is None:
+            # Found by keyword search only. Measure it rather than leave it at
+            # zero, so the cut-off judges it on relevance instead of on which
+            # retriever happened to find it.
+            similarity = (
+                cosine(query_vector, list(chunk.embedding))
+                if query_vector is not None and chunk.embedding is not None
+                else 0.0
+            )
         score = 0.0
         if candidate.vector_rank is not None:
             score += 1 / (RRF_K + candidate.vector_rank)
@@ -256,7 +297,7 @@ async def search(
                 text=chunk.text,
                 token_estimate=chunk.token_estimate,
                 score=score,
-                similarity=candidate.similarity,
+                similarity=similarity,
                 vector_rank=candidate.vector_rank,
                 keyword_rank=candidate.keyword_rank,
             )
@@ -265,12 +306,15 @@ async def search(
     # Ties are common — two chunks found by one retriever each, at the same rank
     # — so break by similarity to keep ordering deterministic between runs.
     results.sort(key=lambda r: (r.score, r.similarity), reverse=True)
-    top = results[:top_k]
 
-    # The cut-off applies to the *set*: if nothing clears the floor the KB does
-    # not cover this query. Keyword-only hits carry similarity 0.0 and cannot
-    # rescue it on their own, which is intended — a lexical match with no
-    # semantic support is usually an incidental word collision.
-    if floor > 0 and not any(r.similarity >= floor for r in top):
+    if floor <= 0:
+        return results[:top_k]
+
+    # Coverage first, over the same top-k the ranking would have returned: if
+    # none of them clears the floor the KB does not cover this query, and a
+    # better passage further down the list does not change that.
+    if not any(r.similarity >= floor for r in results[:top_k]):
         return []
-    return top
+    # Then each passage on its own. Filtering before the cut to k means a weak
+    # passage gives its place to the next relevant one instead of leaving a gap.
+    return [r for r in results if r.similarity >= passage_floor][:top_k]
