@@ -45,7 +45,12 @@ function linksFor(user: User | null, onLanding: boolean): NavLink[] {
   if (user.role === "recruiter") {
     return [
       { href: "/", label: "Home" },
-      { href: "/recruiter/sessions", label: "Sessions" },
+      {
+        href: "/recruiter/sessions",
+        label: "Sessions",
+        // A candidate's skill map is reached from one of their sessions.
+        match: ["/recruiter/sessions", "/recruiter/candidates"],
+      },
       { href: "/recruiter/review", label: "Review queue" },
       { href: "/recruiter/costs", label: "Costs" },
     ];
@@ -55,6 +60,7 @@ function linksFor(user: User | null, onLanding: boolean): NavLink[] {
     { href: section("how"), label: "How it works" },
     // The report and the live interview both belong under "My interviews".
     { href: "/interview", label: "My interviews", match: ["/interview", "/reports"] },
+    { href: "/skills", label: "My skills" },
   ];
 }
 

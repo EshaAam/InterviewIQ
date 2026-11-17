@@ -59,6 +59,7 @@ test("a candidate takes a whole interview and downloads the report", async ({ pa
 
   // Grading runs in a worker; the page moves to the report when it's done.
   await expect(page).toHaveURL(/\/reports\/[0-9a-f-]{36}$/, { timeout: 60_000 });
+  const reportUrl = new URL(page.url()).pathname;
   await expect(page.getByRole("heading", { name: "Interview report" })).toBeVisible();
   await expect(page.getByRole("meter").first()).toBeVisible();
 
@@ -72,6 +73,36 @@ test("a candidate takes a whole interview and downloads the report", async ({ pa
     .getByRole("link", { name: "My interviews" })
     .click();
   await expect(page.getByRole("heading", { name: "Recent sessions" })).toBeVisible();
+
+  // The skill map is built from the grades just written: every skill the
+  // interview covered is placed, and opening one shows the answer behind it.
+  await page
+    .getByRole("navigation", { name: "Main" })
+    .getByRole("link", { name: "My skills" })
+    .click();
+  await expect(page).toHaveURL(/\/skills$/);
+  await expect(page.getByRole("heading", { name: "My skills" })).toBeVisible();
+  await expect(page.getByRole("meter").first()).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /^(Needs work|Developing|Demonstrated)/ }).first(),
+  ).toBeVisible();
+
+  await page.locator("details > summary").first().click();
+  await expect(page.getByRole("list", { name: "Expected concepts" }).first()).toBeVisible();
+  await page.getByRole("link", { name: /Open the interview this comes from/ }).first().click();
+  await expect(page).toHaveURL(new RegExp(`${reportUrl}$`));
+});
+
+test("a new candidate's skill map says there is nothing to map yet", async ({ page }) => {
+  await signUp(page);
+  await page
+    .getByRole("navigation", { name: "Main" })
+    .getByRole("link", { name: "My skills" })
+    .click();
+  await expect(page.getByText("Nothing to map yet")).toBeVisible();
+  // The way out of an empty map is an interview.
+  await page.getByRole("link", { name: "Start an interview" }).click();
+  await expect(page).toHaveURL(/\/interview$/);
 });
 
 test("signing in works from the keyboard alone", async ({ page }) => {

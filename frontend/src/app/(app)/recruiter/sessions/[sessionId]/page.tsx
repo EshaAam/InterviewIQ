@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
+import Link from "next/link";
 import { AnimatePresence } from "motion/react";
 import { CircleCheck, ClipboardPaste, Clock, Flag, Gauge, Keyboard, Mic, Users } from "lucide-react";
 import {
@@ -105,6 +106,12 @@ export default function RecruiterSessionDetailPage({
           <>
             {detail.integrity_flag && <IntegrityBadge />}
             <StatusPill state={detail.state} />
+            <Link
+              href={`/recruiter/candidates/${detail.user_id}`}
+              className="inline-flex min-h-10 items-center rounded-full border border-white/20 px-4 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+            >
+              Skill map
+            </Link>
             {detail.report && <DownloadPdfButton sessionId={detail.id} asRecruiter onDark />}
           </>
         }

@@ -146,6 +146,58 @@ export type Report = {
   study_links: StudyLink[];
 };
 
+/** Where a skill stands, from the most recent interview that asked about it. */
+export type SkillStatus = "demonstrated" | "developing" | "weak";
+
+/** One expected concept and how far the answer covered it (0..1). */
+export type ConceptEvidence = { concept: string; covered: number };
+
+/** A graded question behind a skill's current status. */
+export type QuestionEvidence = {
+  question_id: string;
+  session_id: string;
+  text: string;
+  score: number;
+  concepts: ConceptEvidence[];
+  /** The question's cited passages. Filled only when a concept was missed. */
+  sources: CitedSource[];
+};
+
+/** A skill's score in one interview. */
+export type SkillAttempt = { session_id: string; assessed_at: string; score: number };
+
+export type SkillEvidence = {
+  name: string;
+  status: SkillStatus;
+  /** The latest interview's score for this skill, 0..1. */
+  score: number;
+  best: number;
+  /** The interview before the latest, when there was one. */
+  previous: number | null;
+  sessions: number;
+  answers: number;
+  last_assessed_at: string;
+  /** An answer behind the latest score is still waiting for a recruiter. */
+  needs_review: boolean;
+  /** Oldest first. */
+  history: SkillAttempt[];
+  /** The latest interview's questions on this skill. */
+  evidence: QuestionEvidence[];
+};
+
+/** On the résumé, never graded. */
+export type UnassessedSkill = { name: string; confidence: number; evidence_span: string };
+
+/** A candidate across every interview they have been graded on. */
+export type SkillMap = {
+  /** Set on the recruiter's copy only. */
+  candidate_email: string | null;
+  sessions_assessed: number;
+  /** Weakest first. */
+  skills: SkillEvidence[];
+  not_assessed: UnassessedSkill[];
+};
+
 export type RecruiterSession = {
   id: string;
   user_id: string;
@@ -570,7 +622,19 @@ export async function getReportPdf(
   return (await request(path)).blob();
 }
 
+// --- Skill evidence map ---
+
+/** The signed-in candidate's skills across all their graded interviews. */
+export function getSkillMap(): Promise<SkillMap> {
+  return apiFetch<SkillMap>("/skill-map");
+}
+
 // --- Recruiter ---
+
+/** Any candidate's skill map; `user_id` comes from a session row. */
+export function getCandidateSkillMap(userId: string): Promise<SkillMap> {
+  return apiFetch<SkillMap>(`/recruiter/candidates/${userId}/skill-map`);
+}
 
 export function listSessions(params: {
   state?: SessionState;
