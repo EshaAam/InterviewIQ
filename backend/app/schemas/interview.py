@@ -297,6 +297,75 @@ class OverrideResult(BaseModel):
     session_state: SessionState | None = None
 
 
+# --- Skill evidence map ---
+
+class ConceptEvidence(BaseModel):
+    """One expected concept and how far the answer covered it (0..1)."""
+
+    concept: str
+    covered: float
+
+
+class QuestionEvidence(BaseModel):
+    """A graded question behind a skill's current status."""
+
+    question_id: uuid.UUID
+    session_id: uuid.UUID
+    text: str
+    score: float
+    concepts: list[ConceptEvidence]
+    # The passages the question was built from. Filled only when a concept was
+    # missed: they are there to read up from, not to decorate a good answer.
+    sources: list[CitedSourceRead] = Field(default_factory=list)
+
+
+class SkillAttempt(BaseModel):
+    """A skill's score in one interview."""
+
+    session_id: uuid.UUID
+    assessed_at: datetime
+    score: float
+
+
+class SkillEvidence(BaseModel):
+    name: str
+    # From the most recent interview that asked about the skill, with the
+    # report's own cut-offs. Latest rather than average, so practising a weak
+    # skill moves it instead of being held down by the first attempt forever.
+    status: Literal["demonstrated", "developing", "weak"]
+    score: float
+    best: float
+    # The interview before the latest, when there was one.
+    previous: float | None = None
+    sessions: int
+    answers: int
+    last_assessed_at: datetime
+    # An answer behind the latest score is still waiting for a recruiter.
+    needs_review: bool = False
+    # Oldest first.
+    history: list[SkillAttempt]
+    # The latest interview's questions on this skill.
+    evidence: list[QuestionEvidence]
+
+
+class UnassessedSkill(BaseModel):
+    """On the résumé, never graded: a claim with no evidence either way."""
+
+    name: str
+    confidence: float
+    evidence_span: str
+
+
+class SkillMapRead(BaseModel):
+    # Set on the recruiter's copy only.
+    candidate_email: str | None = None
+    # Interviews with at least one graded answer.
+    sessions_assessed: int
+    # Weakest first.
+    skills: list[SkillEvidence]
+    not_assessed: list[UnassessedSkill]
+
+
 # --- Recruiter / cost ledger ---
 
 class LLMCallRead(BaseModel):

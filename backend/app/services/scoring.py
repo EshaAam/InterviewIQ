@@ -14,6 +14,12 @@ import math
 from dataclasses import dataclass
 from statistics import median
 
+#: A topic averaging at least the first is a strength; below the second, a gap.
+#: Shared by the per-interview report and the cross-interview skill map, so a
+#: skill is never "a strength" on one screen and "developing" on another.
+STRENGTH_THRESHOLD = 0.7
+GAP_THRESHOLD = 0.5
+
 
 def cosine(a: list[float], b: list[float]) -> float:
     dot = sum(x * y for x, y in zip(a, b, strict=False))

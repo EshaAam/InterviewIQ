@@ -41,12 +41,14 @@ from app.schemas.interview import (
     QuestionDetail,
     RecruiterSessionDetail,
     RecruiterSessionRead,
+    SkillMapRead,
 )
 from app.services.budget import utc_day_start
 from app.services.citations import load_citations
 from app.services.integrity import assess, assess_resume, flagged_sessions
 from app.services.pipeline import rebuild_report
 from app.services.reports import pdf_response, render_session_pdf, to_report_read
+from app.services.skill_map import build_skill_map
 
 router = APIRouter(
     prefix="/recruiter",
@@ -191,6 +193,18 @@ async def session_report_pdf(session_id: uuid.UUID, db: DbSession) -> Response:
         db, session, report, candidate_email=email, include_integrity=True
     )
     return pdf_response(pdf, session.id)
+
+
+@router.get("/candidates/{user_id}/skill-map", response_model=SkillMapRead)
+async def candidate_skill_map(user_id: uuid.UUID, db: DbSession) -> SkillMapRead:
+    """One candidate across all their interviews: what they have demonstrated,
+    where they are weak, and what on their résumé nobody has asked about."""
+    candidate = await db.get(User, user_id)
+    if candidate is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Candidate not found")
+    skill_map = await build_skill_map(db, user_id)
+    skill_map.candidate_email = candidate.email
+    return skill_map
 
 
 @router.get("/evaluations", response_model=EvaluationReviewPage)

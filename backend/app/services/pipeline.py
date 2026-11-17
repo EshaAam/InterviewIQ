@@ -68,6 +68,7 @@ from app.services.grading import grade
 from app.services.grounding import GroundedContext, build_context
 from app.services.grounding import build_prompt as build_grounded_prompt
 from app.services.prompt_safety import UNTRUSTED_DATA_RULE, fence
+from app.services.scoring import GAP_THRESHOLD, STRENGTH_THRESHOLD
 from app.services.session_service import SessionService, can_transition
 
 PROMPT_VERSION = "p6-fenced-v1"
@@ -524,8 +525,8 @@ def summarize(per_topic_scores: dict[str, list[float]]) -> dict:
     return {
         "overall": overall,
         "per_topic": per_topic,
-        "strengths": [t for t, s in per_topic.items() if s >= 0.7],
-        "gaps": [t for t, s in per_topic.items() if s < 0.5],
+        "strengths": [t for t, s in per_topic.items() if s >= STRENGTH_THRESHOLD],
+        "gaps": [t for t, s in per_topic.items() if s < GAP_THRESHOLD],
     }
 
 
